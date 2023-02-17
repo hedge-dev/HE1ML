@@ -18,9 +18,12 @@
     <ClInclude Include="Utilities.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="FileBinder.h" />
+    <ClInclude Include="Game.h" />
+    <ClInclude Include="CriwareFileLoader.h" />
+    <ClInclude Include="CriwareGenerations.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DllMain.cpp" />
+    <ClCompile Include="Main.cpp" />
     <ClCompile Include="Pch.cpp" />
     <ClCompile Include="Criware.cpp" />
     <ClCompile Include="ModLoader.cpp" />
@@ -30,6 +33,10 @@
     <ClCompile Include="VirtualFileSystem.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
+    <ClCompile Include="Game.cpp" />
+    <ClCompile Include="LWGameFunctions.cpp" />
+    <ClCompile Include="CriwareFileLoader.cpp" />
+    <ClCompile Include="CriwareGenerations.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

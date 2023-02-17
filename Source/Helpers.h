@@ -29,13 +29,16 @@ const HMODULE MODULE_HANDLE = GetModuleHandle(nullptr);
     functionName* original##functionName = (functionName*)(location); \
     returnType callingConvention implOf##functionName(__VA_ARGS__)
 
-#define INSTALL_HOOK(functionName) \
+#define INSTALL_HOOK_ADDRESS(functionName, ADDRESS) \
     { \
+		*(void**)&original##functionName = (void*)ADDRESS; \
         DetourTransactionBegin(); \
         DetourUpdateThread(GetCurrentThread()); \
         DetourAttach((void**)&original##functionName, implOf##functionName); \
         DetourTransactionCommit(); \
     }
+
+#define INSTALL_HOOK(functionName, ADDRESS) INSTALL_HOOK_ADDRESS(functionName, original##functionName)
 
 #define VTABLE_HOOK(returnType, callingConvention, className, functionName, ...) \
     typedef returnType callingConvention className##functionName(className* This, __VA_ARGS__); \
