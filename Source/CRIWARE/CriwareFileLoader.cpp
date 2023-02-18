@@ -122,3 +122,10 @@ CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size,
 
 	return err;
 }
+
+bool CriFileLoader_FileExists(const char* path)
+{
+	CriBool exists{};
+	cri->criFsBinder_Find(binder, path, nullptr, &exists);
+	return exists;
+}

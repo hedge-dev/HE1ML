@@ -3,40 +3,31 @@
   <ItemGroup>
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Pch.h" />
-    <ClInclude Include="Dependencies\Detours\include\detours.h">
-      <Filter>Dependencies\Detours\include</Filter>
-    </ClInclude>
-    <ClInclude Include="Dependencies\Detours\include\detver.h">
-      <Filter>Dependencies\Detours\include</Filter>
-    </ClInclude>
-    <ClInclude Include="Dependencies\Detours\include\syelog.h">
-      <Filter>Dependencies\Detours\include</Filter>
-    </ClInclude>
-    <ClInclude Include="Criware.h" />
+    <ClInclude Include="CRIWARE\Criware.h" />
     <ClInclude Include="ModLoader.h" />
     <ClInclude Include="Mod.h" />
     <ClInclude Include="Utilities.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
-    <ClInclude Include="CriwareFileLoader.h" />
-    <ClInclude Include="CriwareGenerations.h" />
+    <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
+    <ClInclude Include="Game\BlueBlur\Criware.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Pch.cpp" />
-    <ClCompile Include="Criware.cpp" />
+    <ClCompile Include="CRIWARE\Criware.cpp" />
     <ClCompile Include="ModLoader.cpp" />
-    <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Mod.cpp" />
     <ClCompile Include="Utilities.cpp" />
     <ClCompile Include="VirtualFileSystem.cpp" />
     <ClCompile Include="FileBinder.cpp" />
-    <ClCompile Include="Dependencies\xxhash.cpp" />
     <ClCompile Include="Game.cpp" />
-    <ClCompile Include="LWGameFunctions.cpp" />
-    <ClCompile Include="CriwareFileLoader.cpp" />
-    <ClCompile Include="CriwareGenerations.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />
+    <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
+    <ClCompile Include="Game\BlueBlur\Criware.cpp" />
+    <ClCompile Include="Dependencies\ini.cpp" />
+    <ClCompile Include="Dependencies\xxhash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">
@@ -57,27 +48,5 @@
     <Filter Include="Dependencies\Detours\lib\x64">
       <UniqueIdentifier>{737983fc-3a8e-4a50-b3bc-7bd1e5145ad5}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="Dependencies\Detours\lib\x64\detours.lib">
-      <Filter>Dependencies\Detours\lib\x64</Filter>
-    </Library>
-    <Library Include="Dependencies\Detours\lib\x64\syelog.lib">
-      <Filter>Dependencies\Detours\lib\x64</Filter>
-    </Library>
-    <Library Include="Dependencies\Detours\lib\x86\detours.lib">
-      <Filter>Dependencies\Detours\lib\x86</Filter>
-    </Library>
-    <Library Include="Dependencies\Detours\lib\x86\syelog.lib">
-      <Filter>Dependencies\Detours\lib\x86</Filter>
-    </Library>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Dependencies\Detours\lib\x64\detours.pdb">
-      <Filter>Dependencies\Detours\lib\x64</Filter>
-    </None>
-    <None Include="Dependencies\Detours\lib\x86\detours.pdb">
-      <Filter>Dependencies\Detours\lib\x86</Filter>
-    </None>
   </ItemGroup>
 </Project>

@@ -92,7 +92,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)Dependencies\Detours\include;$(ProjectDir)Dependencies;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Dependencies\Detours\include;$(ProjectDir)Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -132,7 +132,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)Dependencies\Detours\include;$(ProjectDir)Dependencies;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Dependencies\Detours\include;$(ProjectDir)Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -171,12 +171,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Criware.h" />
-    <ClInclude Include="CriwareFileLoader.h" />
-    <ClInclude Include="CriwareGenerations.h" />
-    <ClInclude Include="Dependencies\Detours\include\detours.h" />
-    <ClInclude Include="Dependencies\Detours\include\detver.h" />
-    <ClInclude Include="Dependencies\Detours\include\syelog.h" />
+    <ClInclude Include="CRIWARE\Criware.h" />
+    <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
+    <ClInclude Include="Game\BlueBlur\Criware.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="VirtualFileSystem.h" />
@@ -187,12 +184,12 @@
     <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Criware.cpp" />
-    <ClCompile Include="CriwareFileLoader.cpp" />
-    <ClCompile Include="CriwareGenerations.cpp" />
+    <ClCompile Include="CRIWARE\Criware.cpp" />
+    <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
+    <ClCompile Include="Game\BlueBlur\Criware.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
-    <ClCompile Include="LWGameFunctions.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -206,16 +203,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Utilities.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="Dependencies\Detours\lib\x64\detours.lib" />
-    <Library Include="Dependencies\Detours\lib\x64\syelog.lib" />
-    <Library Include="Dependencies\Detours\lib\x86\detours.lib" />
-    <Library Include="Dependencies\Detours\lib\x86\syelog.lib" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Dependencies\Detours\lib\x64\detours.pdb" />
-    <None Include="Dependencies\Detours\lib\x86\detours.pdb" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

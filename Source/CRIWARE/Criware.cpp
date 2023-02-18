@@ -1,11 +1,10 @@
-#include "Pch.h"
 #include "Criware.h"
 #include <Shlwapi.h>
 #include <string>
 #include <filesystem>
 #include <unordered_set>
-#include "Game.h"
-#include "CriwareGenerations.h"
+#include <Game.h>
+#include <Game/BlueBlur/CriwareGenerations.h>
 
 ModLoader* g_loader{};
 CriFsBindId g_dir_bind{};
@@ -83,11 +82,11 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 	return err;
 }
 
-HOOK(HANDLE, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn)
+HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn)
 {
 	if (!path)
 	{
-		return INVALID_HANDLE_VALUE;
+		return CRIFS_IO_ERROR_NG;
 	}
 	else
 	{
@@ -113,12 +112,12 @@ HOOK(HANDLE, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, CriFsFil
 	return originalcriFsiowin_Open(path, mode, access, filehn);
 }
 
-HOOK(CriError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists)
+HOOK(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists)
 {
 	// LOG("criFsIoWin_Exists: %s", path)
 	if (!path || !exists)
 	{
-		return CRIERR_INVALID_PARAMETER;
+		return CRIFS_IO_ERROR_NG;
 	}
 
 	// Very fast string compare
@@ -128,7 +127,7 @@ HOOK(CriError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriB
 		if (g_loader->binder->FileExists(path) == eBindError_None)
 		{
 			*exists = true;
-			return CRIERR_OK;
+			return CRIFS_IO_ERROR_OK;
 		}
 	}
 	else // others
@@ -136,7 +135,7 @@ HOOK(CriError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriB
 		if (g_loader->binder->FileExists((path + (sizeof(c_dir_stub) - 1))) == eBindError_None)
 		{
 			*exists = true;
-			return CRIERR_OK;
+			return CRIFS_IO_ERROR_OK;
 		}
 	}
 
@@ -156,7 +155,10 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 	//}
 
 	LOG("criFsLoader_Load: %s", path);
-	return originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
+	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
+	const CriError result =  originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
+	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
+	return result;
 }
 
 HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
@@ -188,4 +190,11 @@ void InitCri(ModLoader* loader)
 	INSTALL_HOOK_ADDRESS(criFsiowin_Open, cri.criFsiowin_Open);
 	INSTALL_HOOK_ADDRESS(criFsLoader_Load, cri.criFsLoader_Load);
 	INSTALL_HOOK_ADDRESS(criFsBinder_Unbind, cri.criFsBinder_Unbind);
+
+	// Restore original addresses
+	cri.criFsBinder_BindCpk = originalcrifsbinder_BindCpkInternal;
+	cri.criFsIoWin_Exists = originalcriFsIoWin_Exists;
+	cri.criFsiowin_Open = originalcriFsiowin_Open;
+	cri.criFsLoader_Load = originalcriFsLoader_Load;
+	cri.criFsBinder_Unbind = originalcriFsBinder_Unbind;
 }

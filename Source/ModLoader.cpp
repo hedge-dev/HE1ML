@@ -1,10 +1,9 @@
 #include "Pch.h"
 #include "ModLoader.h"
-#include "Criware.h"
+#include "CRIWARE/Criware.h"
 #include "Utilities.h"
 #include "VirtualFileSystem.h"
 #include "Mod.h"
-
 
 void ModLoader::Init(const char* configPath)
 {

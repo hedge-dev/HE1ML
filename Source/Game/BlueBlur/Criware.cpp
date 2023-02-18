@@ -1,12 +1,33 @@
 #include "Pch.h"
-#include "CriwareGenerations.h"
 #include "Criware.h"
-#include "CriwareFileLoader.h"
+#include <CRIWARE/Criware.h>
+#include <CRIWARE/CriwareFileLoader.h>
 
 namespace
 {
 	const CriFunctionTable* cri{};
 	std::unordered_map<CriFsBindId, CriFsBindId> g_bind_id_map{};
+}
+
+void crifsloader_set_status(CriFsLoaderHn loader, CriFsLoaderStatus status)
+{
+	criAtomic_TestAndSet(reinterpret_cast<long*>(static_cast<char*>(loader) + 156), status);
+}
+
+CriFsSelectIoCbFunc& criFsSelectIoFunc = *reinterpret_cast<CriFsSelectIoCbFunc*>(0x01B37484);
+CriFsIoInterfacePtr criFsInterfaceWin = reinterpret_cast<CriFsIoInterfacePtr>(0x01815F88);
+CriError criFs_SetSelectIoCallback(CriFsSelectIoCbFunc func)
+{
+	criFsSelectIoFunc = func;
+	return CRIERR_OK;
+}
+
+CriError SelectIoGens(const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
+{
+	LOG("SelectIoGens: %s", path);
+	*device_id = CRIFS_DEVICE_00;
+	*ioif = criFsInterfaceWin;
+	return CRIERR_OK;
 }
 
 CriError criFs_CalculateWorkSizeForLibraryOverride(CriFsConfig* config, CriSint32* worksize)
@@ -67,4 +88,5 @@ void CriGensInit(const CriFunctionTable& cri_table)
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindSoundCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindSoundCpk);
+	criFs_SetSelectIoCallback(SelectIoGens);
 }

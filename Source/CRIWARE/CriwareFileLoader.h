@@ -16,3 +16,4 @@ CriError CriFileLoader_BindDirectory(const char* path);
 CriError CriFileLoader_BindDirectory(const char* path, CriFsBindId* out_id);
 CriError CriFileLoader_Unbind(CriFsBindId id);
 CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size);
+bool CriFileLoader_FileExists(const char* path);
