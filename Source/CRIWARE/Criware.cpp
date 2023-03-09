@@ -74,6 +74,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 	{
 		g_override_binder = bndrhn;
 		cri.criFsBinder_BindDirectory(bndrhn, srcbndrhn, c_dir_stub, malloc(worksize), worksize, &g_dir_bind);
+		cri.criFsBinder_SetPriority(g_dir_bind, 90000000);
 	}
 
 	printf("crifsbinder_BindCpkInternal: %s\n", path);
@@ -114,7 +115,7 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 
 HOOK(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists)
 {
-	// LOG("criFsIoWin_Exists: %s", path)
+	LOG("criFsIoWin_Exists: %s", path)
 	if (!path || !exists)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -132,7 +133,7 @@ HOOK(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, 
 	}
 	else // others
 	{
-		if (g_loader->binder->FileExists((path + (sizeof(c_dir_stub) - 1))) == eBindError_None)
+		if (g_loader->binder->FileExists(path) == eBindError_None)
 		{
 			*exists = true;
 			return CRIFS_IO_ERROR_OK;

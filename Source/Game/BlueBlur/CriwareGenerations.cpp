@@ -1,7 +1,9 @@
 #include "Pch.h"
-#include "Criware.h"
+#include "CriwareGenerations.h"
 #include <CRIWARE/Criware.h>
 #include <CRIWARE/CriwareFileLoader.h>
+#include <CRIWARE/CpkDevice.h>
+#include <CRIWARE/CpkRequestDevice.h>
 
 namespace
 {
@@ -25,6 +27,14 @@ CriError criFs_SetSelectIoCallback(CriFsSelectIoCbFunc func)
 CriError SelectIoGens(const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
 {
 	LOG("SelectIoGens: %s", path);
+
+	if (CpkRequestFromString(path))
+	{
+		*device_id = CRIFS_DEVICE_01;
+		*ioif = &cpk_req_io_interface;
+		return CRIERR_OK;
+	}
+
 	*device_id = CRIFS_DEVICE_00;
 	*ioif = criFsInterfaceWin;
 	return CRIERR_OK;
@@ -36,6 +46,7 @@ CriError criFs_CalculateWorkSizeForLibraryOverride(CriFsConfig* config, CriSint3
 	if (config != nullptr)
 	{
 		config->max_files *= 2;
+		config->max_binds *= 2;
 	}
 
 	return cri->criFs_CalculateWorkSizeForLibrary(config, worksize);
@@ -81,6 +92,23 @@ CriError UnbindSoundCpk(CriFsBindId& bndrid)
 	return CRIERR_OK;
 }
 
+CriError CRIAPI LoadFile(CriFsLoaderHn& loader, CriFsBinderHn& binder, const CriChar8*& path, CriSint64& offset, CriSint64& load_size, void*& buffer, CriSint64& buffer_size)
+{
+	CriBool exists{};
+	criFsInterfaceWin->Exists(path, &exists);
+	if (binder == nullptr && CriFileLoader_IsInit() && CriFileLoader_FileExists(path) && !exists)
+	{
+		FileLoadRequest* request;
+		CriFileLoader_LoadAsync(path, offset, load_size, buffer, buffer_size, &request);
+		thread_local static char path_buffer[64]{};
+		CpkRequestToString(path_buffer, request);
+
+		path = path_buffer;
+	}
+
+	return CRIERR_OK;
+}
+
 void CriGensInit(const CriFunctionTable& cri_table)
 {
 	cri = &cri_table;
@@ -88,5 +116,6 @@ void CriGensInit(const CriFunctionTable& cri_table)
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindSoundCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindSoundCpk);
+	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, LoadFile);
 	criFs_SetSelectIoCallback(SelectIoGens);
 }

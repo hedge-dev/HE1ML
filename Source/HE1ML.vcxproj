@@ -103,6 +103,7 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,9 +172,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CRIWARE\CpkDevice.h" />
+    <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
     <ClInclude Include="CRIWARE\Criware.h" />
     <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
-    <ClInclude Include="Game\BlueBlur\Criware.h" />
+    <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="VirtualFileSystem.h" />
@@ -184,9 +187,11 @@
     <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CRIWARE\CpkDevice.cpp" />
+    <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
     <ClCompile Include="CRIWARE\Criware.cpp" />
     <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
-    <ClCompile Include="Game\BlueBlur\Criware.cpp" />
+    <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />

@@ -28,7 +28,15 @@ struct CriFsConfig
 	CriSint32 max_files;
 };
 
-struct CriFsBinderFileInfo;
+typedef struct CriFsBinderFileInfoTag {
+	CriFsFileHn filehn;
+	CriChar8* path;
+	CriSint64 offset;
+	CriSint64 read_size; // Compressed file size
+	CriSint64 extract_size; // Uncompressed file size
+	CriFsBindId binderid;
+	CriUint32 reserved[1];
+} CriFsBinderFileInfo;
 
 enum CriError {
 	CRIERR_OK = 0,
@@ -120,6 +128,55 @@ typedef struct CriFsIoInterfaceTag {
 
 typedef CriError(CRIAPI* CriFsSelectIoCbFunc)(
 	const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif);
+
+inline int crifs_uint_ptr_to_string(unsigned int a1, char* a2)
+{
+	// Disassembled code
+	int i; // r9
+	char v3; // r11
+	bool v4; // cr32
+
+	for (i = 7; i >= 0; --i)
+	{
+		v3 = a1 & 0xF;
+		v4 = (a1 & 0xF) < 0xA;
+		a1 >>= 4;
+		if (v4)
+			*(a2 + i) = v3 + 48;
+		else
+			*(a2 + i) = v3 + 55;
+	}
+	return 8;
+}
+
+inline int criFs_AddressToPath(const void* buffer, CriUint32 buffer_size, CriChar8* path, CriSint32 length)
+{
+	int result; // r3
+
+	if (buffer_size >= 0 && length)
+	{
+		if (length >= 28)
+		{
+			strcpy_s(path, length, "CRIFSMEM:/");
+			crifs_uint_ptr_to_string(reinterpret_cast<unsigned int>(buffer), (path + 10));
+			path[18] = 46;
+			crifs_uint_ptr_to_string(buffer_size, (path + 19));
+			result = 0;
+			path[27] = 0;
+		}
+		else
+		{
+			// criErr_Notify(0, "E2010111602:Length of path is insufficient.");
+			result = -2;
+		}
+	}
+	else
+	{
+		// criErr_NotifyGeneric(0, "E2010111691", -2);
+		result = -2;
+	}
+	return result;
+}
 
 #ifdef _WINDOWS_
 inline static long criAtomic_TestAndSet(long* target, long value)

@@ -11,7 +11,9 @@
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
-    <ClInclude Include="Game\BlueBlur\Criware.h" />
+    <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
+    <ClInclude Include="CRIWARE\CpkDevice.h" />
+    <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -25,9 +27,11 @@
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />
     <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
-    <ClCompile Include="Game\BlueBlur\Criware.cpp" />
+    <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
+    <ClCompile Include="CRIWARE\CpkDevice.cpp" />
+    <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">
