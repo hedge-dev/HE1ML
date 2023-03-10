@@ -12,6 +12,6 @@
 #include <cstdio>
 #include <unordered_map>
 
-#include "ini.h"
+#include "ini.hpp"
 #include "Helpers.h"
 #include "ModLoader.h"
