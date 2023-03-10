@@ -26,6 +26,11 @@ struct FileLoadRequest
 	{
 		return memory != nullptr && static_cast<FileLoadRequest*>(memory)->signature == FILE_LOAD_REQUEST_SIGNATURE;
 	}
+
+	~FileLoadRequest()
+	{
+		signature = 0;
+	}
 };
 
 CriError CriFileLoader_Init(const CriFunctionTable& table, size_t flags = CRI_FILE_LOADER_FLAG_NONE);
