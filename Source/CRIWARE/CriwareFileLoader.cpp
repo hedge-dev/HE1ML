@@ -8,9 +8,7 @@ namespace
 	const CriFunctionTable* cri{};
 	CriFsBinderHn binder{};
 	CriFsLoaderHn loader{};
-	void* work{};
-	int work_size{ 0x0000530d + 47424 };
-	std::unordered_map < CriFsBindId, std::string > g_bind_id_map{};
+	std::unordered_map<CriFsBindId, std::string> g_bind_id_map{};
 	std::thread g_request_loader{};
 	std::mutex g_request_mutex{};
 	std::vector<std::unique_ptr<FileLoadRequest>> g_requests{};
@@ -107,7 +105,6 @@ CriError CriFileLoader_Init(const CriFunctionTable& table, size_t flags)
 	cri = &table;
 	cri->criFsBinder_Create(&binder);
 	cri->criFsLoader_Create(&loader);
-	work = malloc(work_size);
 	g_request_loader = std::thread(FileLoaderWorker);
 	return loader != nullptr && binder != nullptr ? CRIERR_OK : CRIERR_NG;
 }
@@ -127,7 +124,7 @@ CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id)
 {
 	CriFsBindId id{};
 	CriError err;
-	if ((err = cri->criFsBinder_BindCpk(binder, nullptr, path, malloc(work_size), work_size, &id)) != CRIERR_OK)
+	if ((err = cri->criFsBinder_BindCpk(binder, nullptr, path, nullptr, 0, &id)) != CRIERR_OK)
 	{
 		return err;
 	}
