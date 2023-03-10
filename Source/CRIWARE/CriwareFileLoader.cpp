@@ -19,7 +19,7 @@ FileLoadRequest* FindReadyRequest()
 {
 	for (const auto& request : g_requests)
 	{
-		if (request->ready && !request->finished)
+		if (request->state == FILE_LOAD_REQUEST_STATE_READY)
 		{
 			return request.get();
 		}
@@ -35,7 +35,7 @@ void LoadRequest(FileLoadRequest* request)
 		return;
 	}
 	
-	request->loading = true;
+	request->state = FILE_LOAD_REQUEST_STATE_LOADING;
 	cri->criFsLoader_Load(loader, binder, request->path.c_str(), request->offset, request->load_size, request->buffer, request->buffer_size);
 }
 
@@ -58,9 +58,7 @@ void FileLoaderWorker()
 
 				if (status != CRIFSLOADER_STATUS_LOADING)
 				{
-					g_current_request->finished = true;
-					g_current_request->loading = false;
-
+					g_current_request->state = status;
 					g_current_request = FindReadyRequest();
 					LoadRequest(g_current_request);
 				}
@@ -193,8 +191,7 @@ CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_
 	request->load_size = load_size;
 	request->buffer = buffer;
 	request->buffer_size = buffer_size;
-	request->finished = false;
-	request->ready = true;
+	request->state = FILE_LOAD_REQUEST_STATE_READY;
 
 	std::lock_guard guard{ g_request_mutex };
 	g_requests.emplace_back(request);
@@ -217,7 +214,7 @@ CriError CriFileLoader_DeleteRequest(FileLoadRequest* request)
 CriError CriFileLoader_IsLoadComplete(const FileLoadRequest* request, bool* out_complete)
 {
 	std::lock_guard guard{ g_request_mutex };
-	*out_complete = request->finished;
+	*out_complete = request->state != FILE_LOAD_REQUEST_STATE_LOADING && request->state != FILE_LOAD_REQUEST_STATE_READY;
 	return CRIERR_OK;
 }
 

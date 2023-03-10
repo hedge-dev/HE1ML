@@ -10,6 +10,11 @@ typedef CriUint32 CriFsBindId;
 #define CRI_FILE_LOADER_FLAG_NO_CPK 2
 
 #define FILE_LOAD_REQUEST_SIGNATURE 0x52495243
+#define FILE_LOAD_REQUEST_STATE_READY 0
+#define FILE_LOAD_REQUEST_STATE_LOADING 1
+#define FILE_LOAD_REQUEST_STATE_FINISHED 2
+#define FILE_LOAD_REQUEST_STATE_ERROR 3
+
 struct FileLoadRequest
 {
 	int32_t signature{ FILE_LOAD_REQUEST_SIGNATURE };
@@ -18,9 +23,7 @@ struct FileLoadRequest
 	int64_t load_size{};
 	void* buffer{};
 	int64_t buffer_size{};
-	bool ready{};
-	bool loading{};
-	bool finished{};
+	uint8_t state{ FILE_LOAD_REQUEST_STATE_READY };
 
 	static bool IsValid(void* memory)
 	{
