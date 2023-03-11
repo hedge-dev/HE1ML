@@ -80,6 +80,11 @@ public:
 
 	}
 
+	const char* name() const
+	{
+		return ini_section_name(ini, section_id);
+	}
+
 	[[nodiscard]] size_t size() const
 	{
 		return ini_property_count(ini, section_id);
@@ -114,6 +119,46 @@ public:
 class Ini
 {
 public:
+	class iterator
+	{
+	public:
+		ini_t* ini;
+		int index;
+
+		iterator(ini_t* in_ini, int in_index) : ini(in_ini), index(in_index)
+		{
+
+		}
+
+		iterator& operator++()
+		{
+			index++;
+			return *this;
+		}
+
+		iterator operator++(int)
+		{
+			iterator tmp = *this;
+			operator++();
+			return tmp;
+		}
+
+		bool operator==(const iterator& rhs) const
+		{
+			return index == rhs.index;
+		}
+
+		bool operator!=(const iterator& rhs) const
+		{
+			return index != rhs.index;
+		}
+
+		IniSection operator*() const
+		{
+			return { ini, index };
+		}
+	};
+
 	ini_t* ini;
 
 	Ini(const char* data, void* memctx = nullptr) : ini(ini_load(data, memctx))
@@ -126,7 +171,27 @@ public:
 		ini_destroy(ini);
 	}
 
-	IniSection operator[](const char* section) const
+	[[nodiscard]] iterator begin() const
+	{
+		return { ini, 0 };
+	}
+
+	[[nodiscard]] iterator end() const
+	{
+		return { ini, ini_section_count(ini) };
+	};
+
+	[[nodiscard]] size_t size() const
+	{
+		return ini_section_count(ini);
+	}
+
+	[[nodiscard]] IniSection operator[](int index) const
+	{
+		return { ini, index };
+	}
+
+	[[nodiscard]] IniSection operator[](const char* section) const
 	{
 		return { ini, ini_find_section(ini, section, 0) };
 	}

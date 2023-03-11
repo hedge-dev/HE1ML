@@ -565,6 +565,23 @@ ini_t* ini_load( char const* data, void* memctx )
                     else
                         ini_property_add( ini, s, start, l, start2, (int)( ptr - start2 ) );
                     }
+	                else if (*ptr == '\n')
+	                {
+                    l = (int)(ptr - start);
+                    ++ptr;
+                    while (*ptr && *ptr <= ' ' && *ptr != '\n')
+                        ptr++;
+                    start2 = ptr;
+                    while (*ptr && *ptr != '\n')
+                        ++ptr;
+                    while (ptr >= start2 && *(--ptr) <= ' ')
+                        (void)ptr;
+                    ptr++;
+                    if (ptr == start2)
+                        ini_property_add(ini, s, start, l, "", 1);
+                    else
+                        ini_property_add(ini, s, start2, (int)(ptr - start2), start2, (int)(ptr - start2));
+	                }
                 }
             }
         }   
