@@ -14,6 +14,8 @@
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="CRIWARE\CpkDevice.h" />
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
+    <ClInclude Include="Dependencies\ini.hpp" />
+    <ClInclude Include="CpkAdvancedConfig.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -32,6 +34,7 @@
     <ClCompile Include="Dependencies\xxhash.cpp" />
     <ClCompile Include="CRIWARE\CpkDevice.cpp" />
     <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
+    <ClCompile Include="CpkAdvancedConfig.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

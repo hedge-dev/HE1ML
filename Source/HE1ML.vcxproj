@@ -172,10 +172,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CpkAdvancedConfig.h" />
     <ClInclude Include="CRIWARE\CpkDevice.h" />
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
     <ClInclude Include="CRIWARE\Criware.h" />
     <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
+    <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
@@ -187,6 +189,7 @@
     <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CpkAdvancedConfig.cpp" />
     <ClCompile Include="CRIWARE\CpkDevice.cpp" />
     <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
     <ClCompile Include="CRIWARE\Criware.cpp" />

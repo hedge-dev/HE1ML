@@ -1,3 +1,4 @@
+// ReSharper disable CppExpressionWithoutSideEffects
 #include "Pch.h"
 #include "ModLoader.h"
 #include "CRIWARE/Criware.h"
@@ -10,22 +11,24 @@ void ModLoader::Init(const char* configPath)
 	AttachConsole(ATTACH_PARENT_PROCESS);
 	freopen("CONOUT$", "w", stdout);
 	config_path = configPath;
+	
+	vfs->make_link("Packed/", "PackedBB/");
+	vfs->make_link("Packed/ghz200", "ghz200/");
 
-	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str()));
+	vfs->make_entry("Packed/ghz200/ghz200.ar.00");
 
-	auto* ini = ini_load(reinterpret_cast<char*>(file->memory), nullptr);
-	const int cpkSection = ini_find_section(ini, "CPKREDIR", 0);
+	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
 
-	std::string dbPath = string_trim(ini_property_value(ini, cpkSection, ini_find_property(ini, cpkSection, "ModsDbIni", 0)), "\"");
+	const Ini ini{ reinterpret_cast<char*>(file->memory) };
+	const auto cpkSection = ini["CPKREDIR"];
+
+	std::string dbPath = strtrim(cpkSection["ModsDbIni"], "\"");
 	if (dbPath.empty())
 	{
 		dbPath = "Mods\\ModsDb.ini";
 	}
 
 	LoadDatabase(dbPath);
-
-	ini_destroy(ini);
-	// SetStdHandle(STD_OUTPUT_HANDLE, CreateFileA("CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
 	InitCri(this);
 }
 
@@ -37,31 +40,29 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	database_path = databasePath;
-	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str()));
+	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str(), true));
 	if (!file)
 	{
 		return;
 	}
 
 	char buf[32];
-	auto* ini = ini_load(reinterpret_cast<char*>(file->memory), nullptr);
-	const int mainSection = ini_find_section(ini, "Main", 0);
-	const int modsSection = ini_find_section(ini, "Mods", 0);
+	const auto ini = Ini{ reinterpret_cast<char*>(file->memory) };
+	const auto mainSection = ini["Main"];
+	const auto modsSection = ini["Mods"];
 
-	const int activeModCount = std::stoi(ini_property_value(ini, mainSection, ini_find_property(ini, mainSection, "ActiveModCount", 0)));
+	const int activeModCount = std::stoi(mainSection["ActiveModCount"]);
 	for (int i = 0; i < activeModCount; i++)
 	{
 		sprintf_s(buf, sizeof(buf), "ActiveMod%d", i);
-		const auto modKey = string_trim(ini_property_value(ini, mainSection, ini_find_property(ini, mainSection, buf, 0)), "\"");
-		const auto* modPath = ini_property_value(ini, modsSection, ini_find_property(ini, modsSection, modKey.c_str(), 0));
+		const auto modKey = strtrim(mainSection[buf], "\"");
+		const auto* modPath = modsSection[modKey.c_str()];
 
 		if (modPath)
 		{
-			RegisterMod(string_trim(modPath, "\""));
+			RegisterMod(strtrim(modPath, "\""));
 		}
 	}
-
-	ini_destroy(ini);
 }
 
 namespace v0
@@ -94,7 +95,7 @@ bool ModLoader::RegisterMod(const std::string& path)
 	}
 
 	GetCurrentDirectoryW(2048, CurrentDirectory);
-	SetCurrentDirectoryA(mod->root.c_str());
+	SetCurrentDirectoryA(mod->root.string().c_str());
 	mod->RaiseEvent("Init", &info);
 	SetCurrentDirectoryW(CurrentDirectory);
 	mods.push_back(std::move(mod));

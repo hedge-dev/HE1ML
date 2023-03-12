@@ -38,21 +38,28 @@ Buffer* make_buffer(size_t size)
 	return new Buffer(size);
 }
 
-Buffer* read_file(const char* path)
+Buffer* read_file(const char* path, bool text_file)
 {
 	const HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
-	if (!hFile)
+	if (hFile == INVALID_HANDLE_VALUE)
 	{
 		return nullptr;
 	}
 
-	auto* buffer = make_buffer(GetFileSize(hFile, nullptr));
+	auto size = GetFileSize(hFile, nullptr);
+	auto* buffer = make_buffer(text_file ? size + 1 : size);
 	ReadFile(hFile, buffer->memory, buffer->size, nullptr, nullptr);
 	CloseHandle(hFile);
+
+	if (text_file)
+	{
+		buffer->memory[buffer->size - 1] = 0;
+	}
+
 	return buffer;
 }
 
-std::string string_trim(const char* str, const char* s)
+std::string strtrim(const char* str, const char* s)
 {
 	if (!str)
 	{
@@ -80,7 +87,7 @@ std::string string_trim(const char* str, const char* s)
 	return { begin, end };
 }
 
-void string_split(const char* str, const char* sep, std::vector<std::string>& out, bool trim_whitespace)
+void strsplit(const char* str, const char* sep, std::vector<std::string>& out, bool trim_whitespace)
 {
 	if (!str)
 	{
@@ -105,7 +112,7 @@ void string_split(const char* str, const char* sep, std::vector<std::string>& ou
 
 		if (trim_whitespace)
 		{
-			out.push_back(string_trim(std::string(begin, pos).c_str()));
+			out.push_back(strtrim(std::string(begin, pos).c_str()));
 		}
 		else
 		{
@@ -114,23 +121,4 @@ void string_split(const char* str, const char* sep, std::vector<std::string>& ou
 
 		begin = pos + strlen(sep);
 	}
-}
-
-int32_t get_deterministic_hash_code(const void* memory, size_t length)
-{
-	int hash1 = (5381 << 16) + 5381;
-	int hash2 = hash1;
-
-	for (int i = 0; i < length; i += 2)
-	{
-		hash1 = ((hash1 << 5) + hash1) ^ static_cast<const char*>(memory)[i];
-		if (i == length - 1)
-		{
-			break;
-		}
-
-		hash2 = ((hash2 << 5) + hash2) ^ static_cast<const char*>(memory)[i + 1];
-	}
-
-	return hash1 + (hash2 * 1566083941);
 }

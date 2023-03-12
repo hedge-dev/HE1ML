@@ -2,36 +2,46 @@
 #include "Mod.h"
 #include <filesystem>
 #include "Utilities.h"
+#include "CpkAdvancedConfig.h"
+
+namespace fs = std::filesystem;
 
 bool Mod::Init(const std::string& path)
 {
 	const std::filesystem::path modPath = path;
 	root = modPath.parent_path().string();
 
-	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str()));
-	auto* ini = ini_load(reinterpret_cast<char*>(file->memory), nullptr);
-	const int mainSection = ini_find_section(ini, "Main", 0);
-	const int descSection = ini_find_section(ini, "Desc", 0);
+	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
 
-	title = string_trim(ini_property_value(ini, descSection, ini_find_property(ini, descSection, "Title", 0)), "\"");
+	const Ini ini{ reinterpret_cast<char*>(file->memory), nullptr };
+	const auto mainSection = ini["Main"];
+	const auto descSection = ini["Desc"];
+	const auto cpksSection = ini["CPKs"];
+
+	if (cpksSection.valid())
+	{
+		for (const auto& property : cpksSection)
+		{
+			InitAdvancedCpk(strtrim(property.value(), "\"").c_str());
+		}
+	}
+
+	title = strtrim(descSection["Title"], "\"");
 	LOG("Loading mod %s", title.c_str())
 
-	const int includeDirCount = std::stoi(ini_property_value(ini, mainSection, ini_find_property(ini, mainSection, "IncludeDirCount", 0)));
+	const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
 	char buf[32];
 
 	for (int i = 0; i < includeDirCount; i++)
 	{
-		sprintf_s(buf, "IncludeDir%d", i);
-		include_paths.push_back(string_trim(ini_property_value(ini, mainSection, ini_find_property(ini, mainSection, buf, 0)), "\""));
+		snprintf(buf, sizeof(buf), "IncludeDir%d", i);
+		include_paths.push_back(strtrim(mainSection[buf], "\""));
 	}
 
-	const auto dllFilesRaw = string_trim(ini_property_value(ini, mainSection, ini_find_property(ini, mainSection, "DLLFile", 0)), "\"");
-	ini_destroy(ini);
+	const auto dllFilesRaw = strtrim(mainSection["DLLFile"], "\"");
+	const auto dllPaths = strsplit(dllFilesRaw.c_str(), ",");
 
-	std::vector<std::string> dllPaths{};
-	string_split(dllFilesRaw.c_str(), ",", dllPaths);
-
-	SetDllDirectoryA(root.c_str());
+	SetDllDirectoryA(root.string().c_str());
 	for (const auto& dllPath : dllPaths)
 	{
 		LOG("\t\tLoading DLL %s", dllPath.c_str());
@@ -48,6 +58,14 @@ bool Mod::Init(const std::string& path)
 	SetDllDirectoryA(nullptr);
 	GetEvents("ProcessMessage", msg_processors);
 	return true;
+}
+
+void Mod::InitAdvancedCpk(const char* path)
+{
+	const auto file = std::unique_ptr<Buffer>(read_file((root / path).string().c_str(), true));
+	CpkAdvancedConfig config{};
+	config.Parse(reinterpret_cast<char*>(file->memory));
+	config.Process(*loader->vfs, *loader->binder, root);
 }
 
 void Mod::RaiseEvent(const char* name, void* params) const
