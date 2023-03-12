@@ -65,7 +65,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 
 			if (GetFileAttributesW(fsPath.c_str()) != INVALID_FILE_ATTRIBUTES)
 			{
-				g_loader->binder->BindDirectory(fsPath.string().c_str());
+				g_loader->binder->BindDirectory(".", fsPath.string().c_str());
 			}
 		}
 	}
@@ -85,6 +85,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 
 HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn)
 {
+	std::string replacePath{};
 	if (!path)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -95,16 +96,18 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 		if (*reinterpret_cast<const uint32_t*>(path) == *reinterpret_cast<const uint32_t*>(c_dir_stub))
 		{
 			const char* src_path = (path + (sizeof(c_dir_stub) - 1));
-			if (g_loader->binder->ResolvePath(src_path, path) == eBindError_None)
+			if (g_loader->binder->ResolvePath(src_path, &replacePath) == eBindError_None)
 			{
+				path = replacePath.c_str();
 				LOG("%s -> %s", src_path, path)
 			}
 		}
 		else // others
 		{
 			const char* original_path = path;
-			if (g_loader->binder->ResolvePath(original_path, path) == eBindError_None)
+			if (g_loader->binder->ResolvePath(original_path, &replacePath) == eBindError_None)
 			{
+				path = replacePath.c_str();
 				LOG("%s -> %s", original_path, path)
 			}
 		}

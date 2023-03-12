@@ -2,26 +2,82 @@
 #include "FileBinder.h"
 #include "xxhash.h"
 
-EBindError FileBinder::UnbindFile(const char* path)
+
+size_t FileBinder::Binding::AddDirectory(const std::string& path)
+{
+	if (std::holds_alternative<std::monostate>(value))
+	{
+		this->value = std::vector<std::filesystem::path>{ path };
+	}
+	else if (std::holds_alternative<std::filesystem::path>(value))
+	{
+		this->value = std::vector<std::filesystem::path>{ std::get<std::filesystem::path>(value), path };
+	}
+	else if (std::holds_alternative<std::vector<std::filesystem::path>>(value))
+	{
+		std::get<std::vector<std::filesystem::path>>(value).emplace_back(path);
+	}
+
+	return std::get<std::vector<std::filesystem::path>>(value).size() - 1;
+}
+
+void FileBinder::Binding::SetFile(const std::string& path)
+{
+	value = std::filesystem::path{ path };
+}
+
+bool FileBinder::Binding::Query(const char* file, std::string& out_path) const
+{
+	if (std::holds_alternative<std::monostate>(value))
+	{
+		return false;
+	}
+	else if (std::holds_alternative<std::filesystem::path>(value))
+	{
+		out_path = std::get<std::filesystem::path>(value).string();
+		return true;
+	}
+	else if (std::holds_alternative<std::vector<std::filesystem::path>>(value))
+	{
+		for (const auto& dir : std::get<std::vector<std::filesystem::path>>(value))
+		{
+			const auto path = dir / file;
+			auto pathString = path.string();
+			const auto attributes = GetFileAttributesA(pathString.c_str());
+			if (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				out_path = std::move(pathString);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+FileBinder::FileBinder()
+{
+	bindings.reserve(0x100);
+
+	// Reserve the first binding
+	bindings.emplace_back().emplace();
+}
+
+EBindError FileBinder::Unbind(size_t id)
 {
 	std::lock_guard lock(mtx);
-	if (path == nullptr)
+	if (id == 0 || id >= bindings.size())
 	{
 		return eBindError_BadArguments;
 	}
 
+	bindings[id].reset();
 	lookup_cache.clear();
-	const auto* entry = vfs.get_entry(path, false);
-	if (entry && entry->is_root())
-	{
-		entry->parent->erase(entry);
-		return eBindError_None;
-	}
 
-	return eBindError_NotFound;
+	return eBindError_None;
 }
 
-EBindError FileBinder::BindFile(const char* path, const char* destination)
+EBindError FileBinder::BindFile(const char* path, const char* destination, size_t* out_id)
 {
 	std::lock_guard lock(mtx);
 	if (path == nullptr)
@@ -33,16 +89,33 @@ EBindError FileBinder::BindFile(const char* path, const char* destination)
 	if (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY))
 	{
 		lookup_cache.clear();
-		vfs.make_entry(path)->userdata = reinterpret_cast<size_t>(strings.emplace(destination).first->c_str());
+
+		auto* entry = vfs.make_entry(path);
+		auto bindId = entry->userdata;
+
+		// Re-use binding, if any
+		if (bindId != 0)
+		{
+			bindings[bindId].emplace().SetFile(destination);
+		}
+		else
+		{
+			bindId = entry->userdata = AllocateBinding();
+			bindings[bindId]->SetFile(destination);
+		}
+
+		if (out_id != nullptr)
+		{
+			*out_id = bindId;
+		}
+
 		return eBindError_None;
 	}
-	else
-	{
-		return eBindError_NotFound;
-	}
+
+	return eBindError_NotFound;
 }
 
-EBindError FileBinder::BindDirectory(const char* path)
+EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 {
 	std::lock_guard lock(mtx);
 	if (path == nullptr)
@@ -57,46 +130,110 @@ EBindError FileBinder::BindDirectory(const char* path)
 		pathStr += '\\';
 	}
 
-	lookup_cache.clear();
+	const auto attributes = GetFileAttributesA(destination);
+	if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY))
+	{
+		return eBindError_NotFound;
+	}
 
-	bound_directories.push_back(pathStr);
+	lookup_cache.clear();
+	const auto bindId = AllocateBinding();
+	vfs.make_entry(pathStr)->userdata = bindId;
+	bindings[bindId]->AddDirectory(destination);
+
+
 	return eBindError_None;
 }
 
 EBindError FileBinder::FileExists(const char* path) const
 {
-	const char* unused{};
-	return ResolvePath(path, unused);
+	return ResolvePath(path, nullptr);
 }
 
-EBindError FileBinder::ResolvePath(const char* path, const char*& out) const
+EBindError FileBinder::ResolvePath(const char* path, std::string* out) const
 {
 	std::lock_guard lock(mtx);
 	const size_t hash = XXH32(path, strlen(path), 0);
 	const auto& it = lookup_cache.find(hash);
 	if (it != lookup_cache.end())
 	{
-		out = it->second.has_value() ? it->second.value().c_str() : path;
+		if (out != nullptr)
+		{
+			*out = it->second.has_value() ? it->second.value().c_str() : path;
+		}
 		return it->second.has_value() ? eBindError_None : eBindError_NotFound;
 	}
 
-	const auto* file_bind = vfs.get_entry(path);
-	if (file_bind != nullptr)
+	if (strstr(path, "Packed"))
 	{
-		out = lookup_cache.insert_or_assign(hash, reinterpret_cast<const char*>(file_bind->userdata)).first->second->c_str();
-		return eBindError_None;
+		LOG("PACKING");
 	}
 
-	for (const auto& dir : bound_directories)
-	{
-		std::string fullPath = dir + path;
-		if (GetFileAttributesA(fullPath.c_str()) != INVALID_FILE_ATTRIBUTES)
+	EBindError error{ eBindError_NotFound };
+	std::string fsPath{};
+	vfs.root->walk(path, [&](VirtualFileSystem::Entry* entry) -> bool
 		{
-			out = lookup_cache.insert_or_assign(hash, fullPath).first->second->c_str();
-			return eBindError_None;
+			if (entry->userdata == 0)
+			{
+				return true;
+			}
+
+			const auto& binding = bindings[entry->userdata];
+			if ((entry->is_root() || entry->parent->is_root()) && binding->Query(path, fsPath))
+			{
+				if (out != nullptr)
+				{
+					*out = fsPath;
+				}
+				error = eBindError_None;
+				return false;
+			}
+			else if (!entry->is_root())
+			{
+				const auto rel = std::filesystem::relative(path, entry->full_path());
+				if (binding->Query(rel.string().c_str(), fsPath))
+				{
+					if (out != nullptr)
+					{
+						*out = fsPath;
+					}
+					error = eBindError_None;
+					return false;
+				}
+			}
+
+			return true;
+		});
+
+
+	if (error == eBindError_NotFound)
+	{
+		lookup_cache.emplace(hash, std::nullopt);
+	}
+	else
+	{
+		lookup_cache.emplace(hash, fsPath);
+	}
+
+	return error;
+}
+
+size_t FileBinder::AllocateBinding()
+{
+	for (size_t i = 0; i < bindings.size(); ++i)
+	{
+		if (!bindings[i].has_value())
+		{
+			bindings[i].emplace();
+			return i;
 		}
 	}
 
-	lookup_cache.emplace(hash, std::nullopt);
-	return eBindError_NotFound;
+	bindings.emplace_back().emplace();
+	return bindings.size() - 1;
+}
+
+FileBinder::Binding& FileBinder::GetFreeBinding()
+{
+	return bindings[AllocateBinding()].value();
 }

@@ -40,10 +40,113 @@ void VirtualFileSystem::make_deleted(const char* path)
 	}
 
 	entry->foreach([](Entry* entry) -> bool
+		{
+			entry->attribute |= eEntryAttribute_Deleted;
+			return true;
+		});
+}
+
+std::string VirtualFileSystem::Entry::full_path() const
+{
+	std::string path;
+	const Entry* current = this;
+	while (current != nullptr)
 	{
-		entry->attribute |= eEntryAttribute_Deleted;
-		return true;
-	});
+		if (current->is_root())
+		{
+			break;
+		}
+
+		path.insert(0, current->name);
+		if (!current->parent->is_root())
+		{
+			path.insert(0, "/");
+		}
+
+		current = current->parent;
+	}
+
+	if (current != nullptr && current->attribute & eEntryAttribute_Directory)
+	{
+		path.append("/");
+	}
+
+	return path.empty() ? "/" : path;
+}
+
+void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::function<bool(Entry*)>& callback, bool resolve_link)
+{
+	const std::filesystem::path p(path);
+	Entry* current = this;
+
+	if (!callback(current))
+	{
+		return;
+	}
+
+	for (auto& part : p)
+	{
+		if (part.empty())
+		{
+			continue;
+		}
+
+		if (part == "/")
+		{
+			current = root;
+
+			if (!callback(current))
+			{
+				return;
+			}
+
+			continue;
+		}
+
+		if (part == ".")
+		{
+			if (!callback(current))
+			{
+				return;
+			}
+
+			continue;
+		}
+
+		if (part == "..")
+		{
+			current = current->parent;
+			if (current == nullptr)
+			{
+				current = root;
+			}
+
+			if (!callback(current))
+			{
+				return;
+			}
+
+			continue;
+		}
+
+		auto it = current->children.find(part.string());
+		if (it == current->children.end())
+		{
+			return;
+		}
+
+		current = it->second.get();
+
+		if (resolve_link && !current->link.empty() && current->link != current->name)
+		{
+			current = root->get(current->link.c_str());
+		}
+
+		if (!callback(current))
+		{
+			return;
+		}
+	}
 }
 
 VirtualFileSystem::Entry* VirtualFileSystem::Entry::get(Entry* root, const char* path, bool resolve_link)
@@ -54,6 +157,12 @@ VirtualFileSystem::Entry* VirtualFileSystem::Entry::get(Entry* root, const char*
 	{
 		if (part.empty())
 		{
+			continue;
+		}
+
+		if (part == "/")
+		{
+			current = root;
 			continue;
 		}
 

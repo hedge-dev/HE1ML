@@ -19,16 +19,7 @@ void CpkAdvancedConfig::ProcessAdd(VirtualFileSystem& vfs, const CommandGroup& g
 		const auto path = root / command.value;
 		if (fs::is_directory(path))
 		{
-			for (const auto& file : fs::recursive_directory_iterator(path))
-			{
-				if (file.is_directory())
-				{
-					continue;
-				}
-
-				const auto relative = fs::relative(file.path(), root);
-				binder.BindFile((relative.string()).c_str(), file.path().string().c_str());
-			}
+			binder.BindDirectory(command.key.c_str(), path.string().c_str());
 		}
 		else
 		{

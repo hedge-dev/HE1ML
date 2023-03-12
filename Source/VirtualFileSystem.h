@@ -44,6 +44,13 @@ public:
 			return make(this, path);
 		}
 
+		void walk(const char* path, const std::function<bool(Entry*)>& callback, bool resolve_link = true)
+		{
+			walk(this, path, callback, resolve_link);
+		}
+
+		std::string full_path() const;
+		void walk(Entry* root, const char* path, const std::function<bool(Entry*)>& callback, bool resolve_link = true);
 		Entry* get(Entry* root, const char* path, bool resolve_link = true);
 		Entry* make(Entry* root, const std::filesystem::path& path);
 		Entry* make(Entry* root, const char* path);
@@ -80,7 +87,7 @@ public:
 
 		[[nodiscard]] bool is_root() const
 		{
-			return parent == nullptr;
+			return this == nullptr || parent == nullptr;
 		}
 	};
 
