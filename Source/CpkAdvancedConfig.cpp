@@ -1,18 +1,22 @@
 #include "CpkAdvancedConfig.h"
 
 namespace fs = std::filesystem;
-void CpkAdvancedConfig::Process(VirtualFileSystem& vfs, FileBinder& binder, const fs::path& root) const
+void CpkAdvancedConfig::Process(FileBinder& binder, const fs::path& root) const
 {
 	for (const auto& group : groups)
 	{
 		if (group.type == eCommandType_Add)
 		{
-			ProcessAdd(vfs, group, binder, root);
+			ProcessAdd(group, binder, root);
+		}
+		else if (group.type == eCommandType_Copy)
+		{
+			ProcessCopy(group, binder, root);
 		}
 	}
 }
 
-void CpkAdvancedConfig::ProcessAdd(VirtualFileSystem& vfs, const CommandGroup& group, FileBinder& binder, const fs::path& root) const
+void CpkAdvancedConfig::ProcessAdd(const CommandGroup& group, FileBinder& binder, const fs::path& root)
 {
 	for (const auto& command : group)
 	{
@@ -25,6 +29,15 @@ void CpkAdvancedConfig::ProcessAdd(VirtualFileSystem& vfs, const CommandGroup& g
 		{
 			binder.BindFile(command.key.c_str(), path.string().c_str());
 		}
+	}
+}
+
+void CpkAdvancedConfig::ProcessCopy(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root)
+{
+	for (const auto& command : group)
+	{
+		binder.vfs.make_entry(command.value);
+		binder.vfs.make_link(command.key.c_str(), command.value);
 	}
 }
 

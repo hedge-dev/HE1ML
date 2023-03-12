@@ -49,6 +49,7 @@ void VirtualFileSystem::make_deleted(const char* path)
 std::string VirtualFileSystem::Entry::full_path() const
 {
 	std::string path;
+	const Entry* start = this;
 	const Entry* current = this;
 	while (current != nullptr)
 	{
@@ -66,7 +67,7 @@ std::string VirtualFileSystem::Entry::full_path() const
 		current = current->parent;
 	}
 
-	if (current != nullptr && current->attribute & eEntryAttribute_Directory)
+	if (current != nullptr && (start->attribute & eEntryAttribute_Directory))
 	{
 		path.append("/");
 	}

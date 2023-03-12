@@ -65,7 +65,7 @@ void Mod::InitAdvancedCpk(const char* path)
 	const auto file = std::unique_ptr<Buffer>(read_file((root / path).string().c_str(), true));
 	CpkAdvancedConfig config{};
 	config.Parse(reinterpret_cast<char*>(file->memory));
-	config.Process(*loader->vfs, *loader->binder, root);
+	config.Process(*loader->binder, root);
 }
 
 void Mod::RaiseEvent(const char* name, void* params) const

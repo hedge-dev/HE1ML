@@ -158,6 +158,13 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 	//	free(buf);
 	//}
 
+	const auto* entry = g_loader->vfs->get_entry(path, true);
+	static std::unordered_map<CriFsLoaderHn, std::string> replaces{};
+	if (entry != nullptr && entry->userdata == 0)
+	{
+		path = (replaces[loader] = entry->full_path()).c_str();
+	}
+
 	LOG("criFsLoader_Load: %s", path);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
 	const CriError result =  originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);

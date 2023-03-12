@@ -92,7 +92,8 @@ struct CpkAdvancedConfig
 
 	std::vector<CommandGroup> groups{};
 
-	void Process(VirtualFileSystem& vfs, FileBinder& binder, const std::filesystem::path& root) const;
-	void ProcessAdd(VirtualFileSystem& vfs, const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root) const;
+	void Process(FileBinder& binder, const std::filesystem::path& root) const;
+	static void ProcessAdd(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
+	static void ProcessCopy(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
 	void Parse(const char* config);
 };

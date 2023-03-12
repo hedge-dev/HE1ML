@@ -18,7 +18,7 @@ public:
 	std::string config_path{};
 	std::string database_path{};
 	std::unique_ptr<FileBinder> binder{ new FileBinder()};
-	std::unique_ptr<VirtualFileSystem> vfs{ new VirtualFileSystem()};
+	VirtualFileSystem* vfs{ &binder->vfs };
 	std::vector<std::unique_ptr<Mod>> mods{};
 	void Init(const char* configPath);
 	void LoadDatabase(const std::string& databasePath, bool append = false);

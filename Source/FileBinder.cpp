@@ -137,10 +137,18 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 	}
 
 	lookup_cache.clear();
-	const auto bindId = AllocateBinding();
-	vfs.make_entry(pathStr)->userdata = bindId;
-	bindings[bindId]->AddDirectory(destination);
-
+	auto* entry = vfs.make_entry(pathStr);
+	auto bindId = entry->userdata;
+	
+	if (bindId != 0)
+	{
+		bindings[bindId]->AddDirectory(destination);
+	}
+	else
+	{
+		bindId = entry->userdata = AllocateBinding();
+		bindings[bindId]->AddDirectory(destination);
+	}
 
 	return eBindError_None;
 }
@@ -164,7 +172,7 @@ EBindError FileBinder::ResolvePath(const char* path, std::string* out) const
 		return it->second.has_value() ? eBindError_None : eBindError_NotFound;
 	}
 
-	if (strstr(path, "Packed"))
+	if (strstr(path, "Sonic.arl") == path)
 	{
 		LOG("PACKING");
 	}

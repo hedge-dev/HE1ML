@@ -550,7 +550,10 @@ ini_t* ini_load( char const* data, void* memctx )
 
                 if( *ptr == '=' )
                     {
-                    l = (int)( ptr - start);
+                    l = 0;
+                    while (start[l] && (start[l] != '=' && start[l] != ' '))
+						l++;
+
                     ++ptr;
                     while( *ptr && *ptr <= ' ' && *ptr != '\n' ) 
                         ptr++;
