@@ -18,13 +18,13 @@ struct CriFsIoCpkReqHandle
 
 FileLoadRequest* CpkRequestFromString(const char* path)
 {
-	if (path == nullptr || strstr(path, "REQ\\") != path)
+	if (path == nullptr || strstr(path, "REQ:\\") != path)
 	{
 		return nullptr;
 	}
 
 	FileLoadRequest* handle{};
-	if (sscanf(path, "REQ\\%p", &handle) == 0 || !FileLoadRequest::IsValid(handle))
+	if (sscanf(path, "REQ:\\%p", &handle) == 0 || !FileLoadRequest::IsValid(handle))
 	{
 		return nullptr;
 	}

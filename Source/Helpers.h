@@ -38,7 +38,7 @@ const HMODULE MODULE_HANDLE = GetModuleHandle(nullptr);
         DetourTransactionCommit(); \
     }
 
-#define INSTALL_HOOK(functionName, ADDRESS) INSTALL_HOOK_ADDRESS(functionName, original##functionName)
+#define INSTALL_HOOK(functionName) INSTALL_HOOK_ADDRESS(functionName, original##functionName)
 
 #define VTABLE_HOOK(returnType, callingConvention, className, functionName, ...) \
     typedef returnType callingConvention className##functionName(className* This, __VA_ARGS__); \

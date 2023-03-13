@@ -1,4 +1,5 @@
 #pragma once
 
 struct CriFunctionTable;
-void CriGensInit(const CriFunctionTable& cri_table);
+class ModLoader;
+void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader);

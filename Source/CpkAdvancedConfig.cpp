@@ -13,6 +13,14 @@ void CpkAdvancedConfig::Process(FileBinder& binder, const fs::path& root) const
 		{
 			ProcessCopy(group, binder, root);
 		}
+		else if (group.type == eCommandType_Move)
+		{
+			ProcessMove(group, binder, root);
+		}
+		else if (group.type == eCommandType_Swap)
+		{
+			ProcessSwap(group, binder, root);
+		}
 	}
 }
 
@@ -36,8 +44,37 @@ void CpkAdvancedConfig::ProcessCopy(const CommandGroup& group, FileBinder& binde
 {
 	for (const auto& command : group)
 	{
-		binder.vfs.make_entry(command.value);
-		binder.vfs.make_link(command.key.c_str(), command.value);
+		binder.vfs.make_link(command.key.c_str(), command.value.c_str());
+	}
+}
+
+void CpkAdvancedConfig::ProcessMove(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root)
+{
+	for (const auto& command : group)
+	{
+		const auto& newName = command.key;
+		const auto& oldName = command.value;
+
+		binder.vfs.make_link(newName.c_str(), oldName.c_str());
+		binder.vfs.make_deleted(oldName.c_str());
+	}
+}
+
+void CpkAdvancedConfig::ProcessSwap(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root)
+{
+	for (const auto& command : group)
+	{
+		const auto& a = command.key;
+		const auto& b = command.value;
+
+		binder.vfs.make_link(a.c_str(), b.c_str());
+		binder.vfs.make_link(b.c_str(), a.c_str());
+
+		//auto aEntry = binder.vfs.make_entry(a.c_str());
+		//aEntry->set_data(b);
+
+		//auto bEntry = binder.vfs.make_entry(b.c_str());
+		//bEntry->set_data(a);
 	}
 }
 

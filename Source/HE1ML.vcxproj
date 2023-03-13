@@ -181,6 +181,9 @@
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="Game\BlueBlur\hhAllocator.h" />
+    <ClInclude Include="Game\BlueBlur\hhCowData.h" />
+    <ClInclude Include="Game\BlueBlur\hhSharedString.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Mod.h" />

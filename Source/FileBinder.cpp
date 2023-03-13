@@ -91,7 +91,11 @@ EBindError FileBinder::BindFile(const char* path, const char* destination, size_
 		lookup_cache.clear();
 
 		auto* entry = vfs.make_entry(path);
-		auto bindId = entry->userdata;
+		size_t bindId = 0;
+		if (entry->has_data<size_t>())
+		{
+			bindId = entry->get_data<size_t>();
+		}
 
 		// Re-use binding, if any
 		if (bindId != 0)
@@ -100,7 +104,7 @@ EBindError FileBinder::BindFile(const char* path, const char* destination, size_
 		}
 		else
 		{
-			bindId = entry->userdata = AllocateBinding();
+			bindId = entry->userdata.emplace<size_t>(AllocateBinding());
 			bindings[bindId]->SetFile(destination);
 		}
 
@@ -138,7 +142,11 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 
 	lookup_cache.clear();
 	auto* entry = vfs.make_entry(pathStr);
-	auto bindId = entry->userdata;
+	size_t bindId = 0;
+	if (entry->has_data<size_t>())
+	{
+		bindId = entry->get_data<size_t>();
+	}
 	
 	if (bindId != 0)
 	{
@@ -146,7 +154,7 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 	}
 	else
 	{
-		bindId = entry->userdata = AllocateBinding();
+		bindId = entry->userdata.emplace<size_t>(AllocateBinding());
 		bindings[bindId]->AddDirectory(destination);
 	}
 
@@ -172,21 +180,16 @@ EBindError FileBinder::ResolvePath(const char* path, std::string* out) const
 		return it->second.has_value() ? eBindError_None : eBindError_NotFound;
 	}
 
-	if (strstr(path, "Sonic.arl") == path)
-	{
-		LOG("PACKING");
-	}
-
 	EBindError error{ eBindError_NotFound };
 	std::string fsPath{};
 	vfs.root->walk(path, [&](VirtualFileSystem::Entry* entry) -> bool
 		{
-			if (entry->userdata == 0)
+			if (!entry->has_data<size_t>())
 			{
 				return true;
 			}
 
-			const auto& binding = bindings[entry->userdata];
+			const auto& binding = bindings[entry->get_data<size_t>()];
 			if ((entry->is_root() || entry->parent->is_root()) && binding->Query(path, fsPath))
 			{
 				if (out != nullptr)
@@ -211,7 +214,7 @@ EBindError FileBinder::ResolvePath(const char* path, std::string* out) const
 			}
 
 			return true;
-		});
+		}, VFS_ITERATE_RESOLVE_DIR_LINK);
 
 
 	if (error == eBindError_NotFound)

@@ -16,6 +16,9 @@
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="CpkAdvancedConfig.h" />
+    <ClInclude Include="Game\BlueBlur\hhSharedString.h" />
+    <ClInclude Include="Game\BlueBlur\hhCowData.h" />
+    <ClInclude Include="Game\BlueBlur\hhAllocator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />

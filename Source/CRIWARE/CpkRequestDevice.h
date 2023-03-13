@@ -7,5 +7,5 @@ FileLoadRequest* CpkRequestFromString(const char* path);
 
 inline void CpkRequestToString(char* buffer, FileLoadRequest* request)
 {
-	sprintf(buffer, "REQ\\%p", request);
+	sprintf(buffer, "REQ:\\%p", request);
 }

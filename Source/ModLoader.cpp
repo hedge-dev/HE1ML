@@ -3,7 +3,6 @@
 #include "ModLoader.h"
 #include "CRIWARE/Criware.h"
 #include "Utilities.h"
-#include "VirtualFileSystem.h"
 #include "Mod.h"
 
 void ModLoader::Init(const char* configPath)
@@ -11,11 +10,6 @@ void ModLoader::Init(const char* configPath)
 	AttachConsole(ATTACH_PARENT_PROCESS);
 	freopen("CONOUT$", "w", stdout);
 	config_path = configPath;
-	
-	vfs->make_link("Packed/", "PackedBB/");
-	vfs->make_link("Packed/ghz200", "ghz200/");
-
-	vfs->make_entry("Packed/ghz200/ghz200.ar.00");
 
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
 

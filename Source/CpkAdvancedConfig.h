@@ -95,5 +95,7 @@ struct CpkAdvancedConfig
 	void Process(FileBinder& binder, const std::filesystem::path& root) const;
 	static void ProcessAdd(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
 	static void ProcessCopy(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
+	static void ProcessMove(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
+	static void ProcessSwap(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
 	void Parse(const char* config);
 };

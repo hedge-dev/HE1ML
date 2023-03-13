@@ -211,6 +211,7 @@ extern ModLoader* g_loader;
 extern CriFsBindId g_dir_bind;
 extern std::unordered_set<std::string> g_cpk_binds;
 extern void* g_cri_hooks[];
+#endif
 
 typedef void (CRIAPI* CriErrCbFunc)(const CriChar8* errid, CriUint32 p1, CriUint32 p2, CriUint32* parray);
 
@@ -223,6 +224,7 @@ struct CriFunctionTable
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_GetStatus, 0x007D3300, CriFsBindId bndrid, CriFsBinderStatus* status);
 	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_GetStatus, 0x007D42F1, CriFsLoaderHn loader, CriFsLoaderStatus* status);
 
+	FUNCTION_PTR(CriError, CRIAPI, crifsbinder_findWithNameEx, 0x007D335A, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Find, 0x007D38A3, CriFsBinderHn bndrhn, const CriChar8* filepath, CriFsBinderFileInfo* finfo, CriBool* exist);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Unbind, 0x007D2CCD, CriFsBindId bndrid);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindCpk, 0x007D35F4, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
@@ -235,5 +237,6 @@ struct CriFunctionTable
 		CriSint64 load_size, void* buffer, CriSint64 buffer_size);
 };
 
+#ifdef MODLOADER_IMPLEMENTATION
 void InitCri(ModLoader* loader);
 #endif

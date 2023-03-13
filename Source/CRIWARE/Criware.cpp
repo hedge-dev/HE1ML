@@ -150,22 +150,17 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 	CriFsBinderHn binder, const CriChar8* path, CriSint64 offset,
 	CriSint64 load_size, void* buffer, CriSint64 buffer_size)
 {
-	//if (strstr(path, "TitleToPAM.ar.00"))
-	//{
-	//	void* buf = malloc(0x800000);
-	//	// CriFileLoader_Load("Synth/20th_logo_Master20101228b_wav.aax", 0, 0x800000, buf, 0x800000);
+	LOG("criFsLoader_Load: %s", path);
 
-	//	free(buf);
+	//const char* ogPath = path;
+	//const auto* entry = g_loader->vfs->get_entry(path);
+	//thread_local std::string rePath{};
+	//if (entry != nullptr)
+	//{
+	//	rePath = entry->full_path();
+	//	path = rePath.c_str();
 	//}
 
-	const auto* entry = g_loader->vfs->get_entry(path, true);
-	static std::unordered_map<CriFsLoaderHn, std::string> replaces{};
-	if (entry != nullptr && entry->userdata == 0)
-	{
-		path = (replaces[loader] = entry->full_path()).c_str();
-	}
-
-	LOG("criFsLoader_Load: %s", path);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
 	const CriError result =  originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
@@ -182,6 +177,21 @@ HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 	return result;
 }
 
+HOOK(CriError, CRIAPI, crifsbinder_findWithNameEx, nullptr, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists)
+{
+	const char* ogPath = path;
+	const auto* entry = g_loader->vfs->get_entry(path);
+	thread_local std::string rePath;
+	if (entry != nullptr)
+	{
+		rePath = entry->full_path();
+		path = rePath.c_str();
+	}
+
+	const auto result = originalcrifsbinder_findWithNameEx(bndrhn, ogPath, a3, finfo, a5, exists);
+	return result;
+}
+
 void InitCri(ModLoader* loader)
 {
 	g_loader = loader;
@@ -193,7 +203,7 @@ void InitCri(ModLoader* loader)
 
 	if (Game::GetExecutingGame().id == eGameID_SonicGenerations)
 	{
-		CriGensInit(cri);
+		CriGensInit(cri, *loader);
 	}
 
 	INSTALL_HOOK_ADDRESS(crifsbinder_BindCpkInternal, cri.criFsBinder_BindCpk);
@@ -201,6 +211,7 @@ void InitCri(ModLoader* loader)
 	INSTALL_HOOK_ADDRESS(criFsiowin_Open, cri.criFsiowin_Open);
 	INSTALL_HOOK_ADDRESS(criFsLoader_Load, cri.criFsLoader_Load);
 	INSTALL_HOOK_ADDRESS(criFsBinder_Unbind, cri.criFsBinder_Unbind);
+	INSTALL_HOOK_ADDRESS(crifsbinder_findWithNameEx, cri.crifsbinder_findWithNameEx);
 
 	// Restore original addresses
 	cri.criFsBinder_BindCpk = originalcrifsbinder_BindCpkInternal;
@@ -208,4 +219,5 @@ void InitCri(ModLoader* loader)
 	cri.criFsiowin_Open = originalcriFsiowin_Open;
 	cri.criFsLoader_Load = originalcriFsLoader_Load;
 	cri.criFsBinder_Unbind = originalcriFsBinder_Unbind;
+	cri.crifsbinder_findWithNameEx = originalcrifsbinder_findWithNameEx;
 }

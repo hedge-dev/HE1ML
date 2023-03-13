@@ -2,7 +2,7 @@
 #include "VirtualFileSystem.h"
 #include <filesystem>
 
-void VirtualFileSystem::make_link(const char* path, const std::string& link)
+void VirtualFileSystem::make_link(const char* path, const char* link)
 {
 	const std::filesystem::path p(path);
 	Entry* current = make_entry(p);
@@ -11,16 +11,11 @@ void VirtualFileSystem::make_link(const char* path, const std::string& link)
 		return;
 	}
 
-	current->link = link;
+	current->link = make_entry(link);
 	if (!p.has_filename())
 	{
 		current->attribute |= eEntryAttribute_Directory;
 	}
-}
-
-void VirtualFileSystem::make_link(const char* path, const char* link)
-{
-	make_link(path, std::string(link));
 }
 
 void VirtualFileSystem::make_deleted(const char* path)
@@ -75,7 +70,7 @@ std::string VirtualFileSystem::Entry::full_path() const
 	return path.empty() ? "/" : path;
 }
 
-void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::function<bool(Entry*)>& callback, bool resolve_link)
+void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::function<bool(Entry*)>& callback, int iterate_flags)
 {
 	const std::filesystem::path p(path);
 	Entry* current = this;
@@ -138,9 +133,19 @@ void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::fu
 
 		current = it->second.get();
 
-		if (resolve_link && !current->link.empty() && current->link != current->name)
+		if (current->link != nullptr && current->link != current)
 		{
-			current = root->get(current->link.c_str());
+			if (current->attribute & eEntryAttribute_Directory)
+			{
+				if (iterate_flags & VFS_ITERATE_RESOLVE_DIR_LINK)
+				{
+					current = current->link;
+				}
+			}
+			else if (iterate_flags & VFS_ITERATE_RESOLVE_FILE_LINK)
+			{
+				current = current->link;
+			}
 		}
 
 		if (!callback(current))
@@ -150,7 +155,7 @@ void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::fu
 	}
 }
 
-VirtualFileSystem::Entry* VirtualFileSystem::Entry::get(Entry* root, const char* path, bool resolve_link)
+VirtualFileSystem::Entry* VirtualFileSystem::Entry::get(Entry* root, const char* path, int iterate_flags)
 {
 	const std::filesystem::path p(path);
 	Entry* current = this;
@@ -190,9 +195,19 @@ VirtualFileSystem::Entry* VirtualFileSystem::Entry::get(Entry* root, const char*
 
 		current = it->second.get();
 
-		if (resolve_link && !current->link.empty() && current->link != current->name)
+		if (current->is_directory() && iterate_flags & VFS_ITERATE_RESOLVE_DIR_LINK)
 		{
-			current = root->get(current->link.c_str());
+			if (current->link != nullptr && current->link != current)
+			{
+				current = current->link;
+			}
+		}
+		else if (iterate_flags & VFS_ITERATE_RESOLVE_FILE_LINK)
+		{
+			if (current->link != nullptr && current->link != current)
+			{
+				current = current->link;
+			}
 		}
 	}
 
@@ -241,17 +256,9 @@ VirtualFileSystem::Entry* VirtualFileSystem::Entry::make(Entry* root, const std:
 		}
 		current = it->second.get();
 
-		if (!current->link.empty() && current->link != current->name)
+		if (current->is_directory() && current->link != nullptr && current->link != current)
 		{
-			auto* next = root->get(root, current->link.c_str());
-			if (next == nullptr)
-			{
-				current = root->make(root, current->link);
-			}
-			else
-			{
-				current = next;
-			}
+			current = current->link;
 		}
 	}
 
@@ -270,9 +277,9 @@ VirtualFileSystem::Entry* VirtualFileSystem::Entry::make(Entry* root, const char
 }
 
 
-VirtualFileSystem::Entry* VirtualFileSystem::get_entry(const char* path, bool resolve_link) const
+VirtualFileSystem::Entry* VirtualFileSystem::get_entry(const char* path, int iterate_flags) const
 {
-	return root->get(path, resolve_link);
+	return root->get(path, iterate_flags);
 }
 
 VirtualFileSystem::Entry* VirtualFileSystem::make_entry(const std::filesystem::path& path) const
