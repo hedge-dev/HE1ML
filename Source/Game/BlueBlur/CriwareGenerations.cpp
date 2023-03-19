@@ -65,7 +65,7 @@ CriError BindSoundCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const Cri
 {
 	if (!CriFileLoader_IsInit())
 	{
-		CriFileLoader_Init(*g_cri, CRI_FILE_LOADER_FLAG_NO_DIR);
+		CriFileLoader_Init(*g_cri, {});
 	}
 
 	if (!bndrhn && bndrid)
@@ -112,48 +112,6 @@ CriError CRIAPI LoadFile(CriFsLoaderHn& loader, CriFsBinderHn& binder, const Cri
 	return CRIERR_OK;
 }
 
-static size_t StringSuffix{ 0x44584946 };
-Hedgehog::Base::CSharedString MakeSuffixedString(const char* str)
-{
-	return { str, &StringSuffix, sizeof(StringSuffix) };
-}
-
-bool HasSuffix(const Hedgehog::Base::CSharedString& str)
-{
-	auto* suffixPtr = ((size_t*)(str.c_str() + str.size()));
-	return *suffixPtr == StringSuffix;
-}
-
-Hedgehog::Base::CSharedString ResolveFilePath(const Hedgehog::Base::CSharedString& filePath)
-{
-	if (HasSuffix(filePath))
-	{
-		return filePath;
-	}
-
-	if (strstr(filePath.c_str(), "Packed"))
-	{
-		LOG("PACKING");
-	}
-
-	const auto* entry = g_loader->vfs->get_entry(filePath.c_str());
-	if (entry != nullptr && entry->link != nullptr)
-	{
-		return MakeSuffixedString(entry->full_path().c_str());
-	}
-
-	return filePath;
-}
-
-HOOK(bool, __fastcall, CFileReaderCriD3D9Open, 0x6A03B0, void* This, void* Edx, const Hedgehog::Base::CSharedString& filePath)
-{
-	return originalCFileReaderCriD3D9Open(This, Edx, ResolveFilePath(filePath));
-}
-
-HOOK(bool, __fastcall, CFileBinderCriExists, 0x66A140, void* This, void* Edx, const Hedgehog::Base::CSharedString& filePath)
-{
-	return originalCFileBinderCriExists(This, Edx, ResolveFilePath(filePath));
-}
 
 void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 {
@@ -161,9 +119,7 @@ void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 	g_binder = loader.binder.get();
 	WRITE_CALL(0x007629C5, criFsBinder_CreateOverride);
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
-
-	//INSTALL_HOOK(CFileReaderCriD3D9Open);
-	//INSTALL_HOOK(CFileBinderCriExists);
+	
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindSoundCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindSoundCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, LoadFile);

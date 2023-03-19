@@ -9,6 +9,10 @@ typedef CriUint32 CriFsBindId;
 #define CRI_FILE_LOADER_FLAG_NO_DIR 1
 #define CRI_FILE_LOADER_FLAG_NO_CPK 2
 
+#ifndef CRI_FILE_LOADER_DEFAULT_NUM_LOADERS
+#define CRI_FILE_LOADER_DEFAULT_NUM_LOADERS 4
+#endif
+
 #define FILE_LOAD_REQUEST_SIGNATURE 0x52495243
 #define FILE_LOAD_REQUEST_STATE_READY 0
 #define FILE_LOAD_REQUEST_STATE_LOADING 1
@@ -24,6 +28,7 @@ struct FileLoadRequest
 	void* buffer{};
 	int64_t buffer_size{};
 	uint8_t state{ FILE_LOAD_REQUEST_STATE_READY };
+	size_t loader{ static_cast<size_t>(-1)};
 
 	static bool IsValid(void* memory)
 	{
@@ -36,7 +41,13 @@ struct FileLoadRequest
 	}
 };
 
-CriError CriFileLoader_Init(const CriFunctionTable& table, size_t flags = CRI_FILE_LOADER_FLAG_NONE);
+struct CriFileLoaderConfig
+{
+	size_t flags{ CRI_FILE_LOADER_FLAG_NONE };
+	size_t num_loaders{ CRI_FILE_LOADER_DEFAULT_NUM_LOADERS };
+};
+
+CriError CriFileLoader_Init(const CriFunctionTable& table, const CriFileLoaderConfig& config);
 bool CriFileLoader_IsInit();
 CriError CriFileLoader_BindCpk(const char* path);
 CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id);

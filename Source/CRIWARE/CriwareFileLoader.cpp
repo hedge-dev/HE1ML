@@ -6,13 +6,27 @@
 namespace
 {
 	const CriFunctionTable* cri{};
-	CriFsBinderHn binder{};
-	CriFsLoaderHn loader{};
+	CriFsBinderHn g_binder{};
+	std::vector<std::pair<CriFsLoaderHn, FileLoadRequest*>> g_loaders{};
 	std::unordered_map<CriFsBindId, std::string> g_bind_id_map{};
-	std::thread g_request_loader{};
+	std::thread g_request_worker{};
 	std::mutex g_request_mutex{};
 	std::vector<std::unique_ptr<FileLoadRequest>> g_requests{};
-	FileLoadRequest* g_current_request{};
+
+	// Global struct to cancel the worker when app exits
+	struct CancellationToken
+	{
+		std::atomic<bool> cancelled{};
+
+		~CancellationToken()
+		{
+			cancelled = true;
+			if (g_request_worker.joinable())
+			{
+				g_request_worker.join();
+			}
+		}
+	} g_cancellation;
 }
 
 FileLoadRequest* FindReadyRequest()
@@ -28,39 +42,36 @@ FileLoadRequest* FindReadyRequest()
 	return nullptr;
 }
 
-void LoadRequest(FileLoadRequest* request)
-{
-	if (request == nullptr)
-	{
-		return;
-	}
-	
-	request->state = FILE_LOAD_REQUEST_STATE_LOADING;
-	cri->criFsLoader_Load(loader, binder, request->path.c_str(), request->offset, request->load_size, request->buffer, request->buffer_size);
-}
 
 void FileLoaderWorker()
 {
-	while (true)
+	while (!g_cancellation.cancelled)
 	{
 		if (!g_requests.empty())
 		{
 			std::lock_guard guard{ g_request_mutex };
-			if (g_current_request == nullptr)
+			for (auto& loaderPair : g_loaders)
 			{
-				g_current_request = FindReadyRequest();
-				LoadRequest(g_current_request);
-			}
-			else
-			{
-				CriFsLoaderStatus status{};
-				cri->criFsLoader_GetStatus(loader, &status);
-
-				if (status != CRIFSLOADER_STATUS_LOADING)
+				if (loaderPair.second == nullptr)
 				{
-					g_current_request->state = status;
-					g_current_request = FindReadyRequest();
-					LoadRequest(g_current_request);
+					loaderPair.second = FindReadyRequest();
+					if (loaderPair.second != nullptr)
+					{
+						loaderPair.second->state = FILE_LOAD_REQUEST_STATE_LOADING;
+						cri->criFsLoader_Load(loaderPair.first, g_binder, loaderPair.second->path.c_str(), loaderPair.second->offset, loaderPair.second->load_size, loaderPair.second->buffer, loaderPair.second->buffer_size);
+					}
+				}
+
+				if (loaderPair.second != nullptr)
+				{
+					CriFsLoaderStatus status{};
+					cri->criFsLoader_GetStatus(loaderPair.first, &status);
+					loaderPair.second->state = static_cast<uint8_t>(status);
+
+					if (status != CRIFSLOADER_STATUS_LOADING)
+					{
+						loaderPair.second = nullptr;
+					}
 				}
 			}
 		}
@@ -68,8 +79,9 @@ void FileLoaderWorker()
 	}
 }
 
-CriError CriFileLoader_Init(const CriFunctionTable& table, size_t flags)
+CriError CriFileLoader_Init(const CriFunctionTable& table, const CriFileLoaderConfig& config)
 {
+	const auto flags = config.flags;
 	if (CriFileLoader_IsInit())
 	{
 		return CRIERR_OK;
@@ -101,10 +113,21 @@ CriError CriFileLoader_Init(const CriFunctionTable& table, size_t flags)
 	}
 
 	cri = &table;
-	cri->criFsBinder_Create(&binder);
-	cri->criFsLoader_Create(&loader);
-	g_request_loader = std::thread(FileLoaderWorker);
-	return loader != nullptr && binder != nullptr ? CRIERR_OK : CRIERR_NG;
+	cri->criFsBinder_Create(&g_binder);
+
+	for (size_t i = 0; i < config.num_loaders; i++)
+	{
+		CriFsLoaderHn loader{};
+		cri->criFsLoader_Create(&loader);
+
+		if (loader != nullptr)
+		{
+			g_loaders.emplace_back(loader, nullptr);
+		}
+	}
+
+	g_request_worker = std::thread(FileLoaderWorker);
+	return !g_loaders.empty() && g_binder != nullptr ? CRIERR_OK : CRIERR_NG;
 }
 
 bool CriFileLoader_IsInit()
@@ -122,7 +145,7 @@ CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id)
 {
 	CriFsBindId id{};
 	CriError err;
-	if ((err = cri->criFsBinder_BindCpk(binder, nullptr, path, nullptr, 0, &id)) != CRIERR_OK)
+	if ((err = cri->criFsBinder_BindCpk(g_binder, nullptr, path, nullptr, 0, &id)) != CRIERR_OK)
 	{
 		return err;
 	}
@@ -151,7 +174,7 @@ CriError CriFileLoader_BindDirectory(const char* path)
 
 CriError CriFileLoader_BindDirectory(const char* path, CriFsBindId* out_id)
 {
-	return cri->criFsBinder_BindDirectory(binder, nullptr, path, nullptr, 0, out_id);
+	return cri->criFsBinder_BindDirectory(g_binder, nullptr, path, nullptr, 0, out_id);
 }
 
 CriError CriFileLoader_Unbind(CriFsBindId id)
@@ -161,22 +184,24 @@ CriError CriFileLoader_Unbind(CriFsBindId id)
 
 CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size)
 {
-	CriError err = cri->criFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
+	FileLoadRequest* request{};
+	const auto err = CriFileLoader_LoadAsync(path, offset, load_size, buffer, buffer_size, &request);
 	if (err != CRIERR_OK)
 	{
 		return err;
 	}
 
-	CriFsLoaderStatus status{};
-	while (true)
+	bool complete{};
+	while (!complete)
 	{
-		cri->criFsLoader_GetStatus(loader, &status);
+		CriFileLoader_IsLoadComplete(request, &complete);
 
-		if (status != CRIFSLOADER_STATUS_LOADING)
+		// Hopefully save a millisecond
+		if (complete)
 		{
 			break;
 		}
-		
+
 		Sleep(1);
 	}
 
@@ -222,14 +247,14 @@ bool CriFileLoader_FileExists(const char* path)
 {
 	CriBool exists{};
 	CriFsBinderFileInfo info{};
-	cri->criFsBinder_Find(binder, path, &info, &exists);
+	cri->criFsBinder_Find(g_binder, path, &info, &exists);
 	return exists;
 }
 
 CriUint64 CriFileLoader_GetFileSize(const char* path)
 {
 	CriFsBinderFileInfo info{};
-	cri->criFsBinder_Find(binder, path, &info, nullptr);
+	cri->criFsBinder_Find(g_binder, path, &info, nullptr);
 
 	return info.extract_size;
 }
