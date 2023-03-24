@@ -70,6 +70,10 @@ void FileLoaderWorker()
 
 					if (status != CRIFSLOADER_STATUS_LOADING)
 					{
+						if (loaderPair.second->callback)
+						{
+							loaderPair.second->callback(*loaderPair.second);
+						}
 						loaderPair.second = nullptr;
 					}
 				}
@@ -145,7 +149,7 @@ CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id)
 {
 	CriFsBindId id{};
 	CriError err;
-	if ((err = cri->criFsBinder_BindCpk(g_binder, nullptr, path, nullptr, 0, &id)) != CRIERR_OK)
+	if ((err = cri->criFsBinder_BindCpk(g_binder, nullptr, path, malloc(0x400000), 0x400000, &id)) != CRIERR_OK)
 	{
 		return err;
 	}
@@ -210,12 +214,19 @@ CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size,
 
 CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size, FileLoadRequest** out_request)
 {
+	return CriFileLoader_LoadAsync(path, offset, load_size, buffer, buffer_size, nullptr, out_request);
+}
+
+CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size,
+	const std::function<void(const FileLoadRequest&)>& callback, FileLoadRequest** out_request)
+{
 	auto* request = new FileLoadRequest();
 	request->path = path;
 	request->offset = offset;
 	request->load_size = load_size;
 	request->buffer = buffer;
 	request->buffer_size = buffer_size;
+	request->callback = callback;
 	request->state = FILE_LOAD_REQUEST_STATE_READY;
 
 	std::lock_guard guard{ g_request_mutex };
@@ -238,6 +249,12 @@ CriError CriFileLoader_DeleteRequest(FileLoadRequest* request)
 
 CriError CriFileLoader_IsLoadComplete(const FileLoadRequest* request, bool* out_complete)
 {
+	if (request == nullptr)
+	{
+		*out_complete = false;
+		return CRIERR_OK;
+	}
+
 	std::lock_guard guard{ g_request_mutex };
 	*out_complete = request->state != FILE_LOAD_REQUEST_STATE_LOADING && request->state != FILE_LOAD_REQUEST_STATE_READY;
 	return CRIERR_OK;
@@ -257,4 +274,11 @@ CriUint64 CriFileLoader_GetFileSize(const char* path)
 	cri->criFsBinder_Find(g_binder, path, &info, nullptr);
 
 	return info.extract_size;
+}
+
+CriError CriFileLoader_GetFileInfo(const char* path, CriFsBinderFileInfoTag& info)
+{
+	CriBool exists{};
+	cri->criFsBinder_Find(g_binder, path, &info, &exists);
+	return exists ? CRIERR_OK : CRIERR_NG;
 }

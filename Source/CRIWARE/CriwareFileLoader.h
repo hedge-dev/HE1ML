@@ -1,6 +1,7 @@
 #pragma once
 enum CriError;
 struct CriFunctionTable;
+struct CriFsBinderFileInfoTag;
 typedef uint32_t CriUint32;
 typedef uint64_t CriUint64;
 typedef CriUint32 CriFsBindId;
@@ -27,6 +28,7 @@ struct FileLoadRequest
 	int64_t load_size{};
 	void* buffer{};
 	int64_t buffer_size{};
+	std::function<void(const FileLoadRequest&)> callback{};
 	uint8_t state{ FILE_LOAD_REQUEST_STATE_READY };
 	size_t loader{ static_cast<size_t>(-1)};
 
@@ -56,7 +58,9 @@ CriError CriFileLoader_BindDirectory(const char* path, CriFsBindId* out_id);
 CriError CriFileLoader_Unbind(CriFsBindId id);
 CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size);
 CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size, FileLoadRequest** out_request);
+CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size, const std::function<void(const FileLoadRequest&)>& callback, FileLoadRequest** out_request);
 CriError CriFileLoader_DeleteRequest(FileLoadRequest* request);
 CriError CriFileLoader_IsLoadComplete(const FileLoadRequest* request, bool* out_complete);
 bool CriFileLoader_FileExists(const char* path);
 CriUint64 CriFileLoader_GetFileSize(const char* path);
+CriError CriFileLoader_GetFileInfo(const char* path, CriFsBinderFileInfoTag& info);

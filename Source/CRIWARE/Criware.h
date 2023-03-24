@@ -32,8 +32,8 @@ typedef struct CriFsBinderFileInfoTag {
 	CriFsFileHn filehn;
 	CriChar8* path;
 	CriSint64 offset;
-	CriSint64 read_size; // Compressed file size
-	CriSint64 extract_size; // Uncompressed file size
+	CriSint32 read_size; // Compressed file size
+	CriSint32 extract_size; // Uncompressed file size
 	CriFsBindId binderid;
 	CriUint32 reserved[1];
 } CriFsBinderFileInfo;
@@ -219,6 +219,7 @@ struct CriFunctionTable
 {
 	FUNCTION_PTR(CriError, CRIAPI, criFs_CalculateWorkSizeForLibrary, 0x007D0413, const CriFsConfig* config, CriSint32* worksize);
 	FUNCTION_PTR(void, CRIAPI, criErr_SetCallback, 0x007C92C5, CriErrCbFunc cbf);
+	FUNCTION_PTR(void, CRIAPI, criFs_SetSelectIoCallback, nullptr, CriFsSelectIoCbFunc func);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindDirectory, 0x007D2AB8, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_SetPriority, 0x007D2512, CriFsBindId bndrid, CriSint32 priority);
 	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_GetStatus, 0x007D3300, CriFsBindId bndrid, CriFsBinderStatus* status);

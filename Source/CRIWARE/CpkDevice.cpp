@@ -5,7 +5,11 @@ struct CriFsIoCpkHandle
 {
 	std::string name{};
 	CriUint64 size{};
+	CriUint64 bytes_read{};
 	FileLoadRequest* request{};
+	std::unique_ptr<uint8_t[]> data{};
+	bool compressed{};
+	bool loaded{};
 
 	~CriFsIoCpkHandle()
 	{
@@ -44,14 +48,16 @@ CriFsIoError CRIAPI CriFsIoCpk_Open(const CriChar8* path, CriFsFileMode mode, Cr
 		path += 4;
 	}
 
-	if (!CriFileLoader_FileExists(path))
+	CriFsBinderFileInfo info{};
+	if (CriFileLoader_GetFileInfo(path, info) != CRIERR_OK)
 	{
 		return CRIFS_IO_ERROR_NG;
 	}
 
 	auto* handle = new CriFsIoCpkHandle();
 	handle->name = path;
-	handle->size = CriFileLoader_GetFileSize(path);
+	handle->size = info.extract_size;
+	handle->compressed = info.read_size != info.extract_size;
 
 	*filehn = handle;
 	return CRIFS_IO_ERROR_OK;
@@ -83,7 +89,34 @@ CriFsIoError CRIAPI CriFsIoCpk_Read(CriFsFileHn filehn, CriSint64 offset, CriSin
 	}
 
 	auto* handle = static_cast<CriFsIoCpkHandle*>(filehn);
-	CriFileLoader_LoadAsync(handle->name.c_str(), offset, read_size, buffer, buffer_size, &handle->request);
+
+	if (handle->loaded)
+	{
+		handle->bytes_read = offset + read_size > handle->size ? handle->size - offset : read_size;
+		memcpy(buffer, handle->data.get() + offset, handle->bytes_read);
+	}
+	else if (handle->compressed)
+	{
+		handle->data = std::make_unique<uint8_t[]>(handle->size);
+		CriFileLoader_LoadAsync(handle->name.c_str(), 0, handle->size, handle->data.get(), handle->size, [=](const FileLoadRequest& request)
+			{
+				handle->bytes_read = offset + read_size > handle->size ? handle->size - offset : read_size;
+				memcpy(buffer, handle->data.get() + offset, handle->bytes_read);
+				handle->loaded = true;
+			}, &handle->request);
+	}
+	else
+	{
+		if (handle->request)
+		{
+			CriFileLoader_DeleteRequest(handle->request);
+			handle->request = nullptr;
+		}
+
+		handle->bytes_read = offset + read_size > handle->size ? handle->size - offset : read_size;
+		CriFileLoader_LoadAsync(handle->name.c_str(), offset, read_size, buffer, buffer_size, &handle->request);
+	}
+
 	return CRIFS_IO_ERROR_OK;
 }
 
@@ -96,9 +129,13 @@ CriFsIoError CRIAPI CriFsIoCpk_IsReadComplete(CriFsFileHn filehn, CriBool* resul
 
 	const auto* handle = static_cast<CriFsIoCpkHandle*>(filehn);
 	bool finished{};
-	CriFileLoader_IsLoadComplete(handle->request, &finished);
 
-	*result = finished;
+	if (handle->request)
+	{
+		CriFileLoader_IsLoadComplete(handle->request, &finished);
+	}
+
+	*result = handle->loaded || finished;
 	return CRIFS_IO_ERROR_OK;
 }
 
@@ -109,7 +146,9 @@ CriFsIoError CRIAPI CriFsIoCpk_GetReadSize(CriFsFileHn filehn, CriSint64* read_s
 		return CRIFS_IO_ERROR_NG;
 	}
 
-	*read_size = 0;
+	const auto* handle = static_cast<CriFsIoCpkHandle*>(filehn);
+
+	*read_size = handle->bytes_read;
 	return CRIFS_IO_ERROR_OK;
 }
 
