@@ -12,6 +12,11 @@ void VirtualFileSystem::make_link(const char* path, const char* link)
 	}
 
 	current->link = make_entry(link);
+	if (current->link == current)
+	{
+		current->link = get_entry(link, 0);
+	}
+
 	if (!p.has_filename())
 	{
 		current->attribute |= eEntryAttribute_Directory;

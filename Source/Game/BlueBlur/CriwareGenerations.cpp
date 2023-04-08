@@ -4,7 +4,8 @@
 #include <CRIWARE/Criware.h>
 #include <CRIWARE/CriwareFileLoader.h>
 #include <CRIWARE/CpkRequestDevice.h>
-#include "hhSharedString.h"
+#include <CRIWARE/CpkDevice.h>
+#include <CRIWARE/ModLoaderDevice.h>
 
 namespace
 {
@@ -31,15 +32,24 @@ CriError SelectIoGens(const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInt
 {
 	LOG("SelectIoGens: %s", path);
 
-	if (CpkRequestFromString(path))
+	if (strstr(path, "HML\\"))
 	{
-		*device_id = CRIFS_DEVICE_01;
-		*ioif = &cpk_req_io_interface;
-		return CRIERR_OK;
+		path += 4;
 	}
 
-	*device_id = CRIFS_DEVICE_00;
-	*ioif = criFsInterfaceWin;
+	size_t id = CriFsIoML_ResolveDevice(path);
+	if (id == -1)
+	{
+		id = 0;
+	}
+
+	if (id > 1)
+	{
+		id = 1;
+	}
+
+	*ioif = &ml_io_interface;
+	*device_id = static_cast<CriFsDeviceId>(id);
 	return CRIERR_OK;
 }
 
@@ -67,8 +77,7 @@ CriError BindSoundCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const Cri
 	{
 		CriFileLoader_Init(*g_cri, {});
 	}
-
-	if (!bndrhn && bndrid)
+	if (/*!bndrhn && */bndrid)
 	{
 		LOG("Binding sound cpk: %s", path);
 		CriFsBindId stub_id;
@@ -95,26 +104,14 @@ CriError UnbindSoundCpk(CriFsBindId& bndrid)
 	return CRIERR_OK;
 }
 
-CriError CRIAPI LoadFile(CriFsLoaderHn& loader, CriFsBinderHn& binder, const CriChar8*& path, CriSint64& offset, CriSint64& load_size, void*& buffer, CriSint64& buffer_size)
-{
-	CriBool exists{};
-	criFsInterfaceWin->Exists(path, &exists);
-	if (binder == nullptr && CriFileLoader_IsInit() && CriFileLoader_FileExists(path) && !exists)
-	{
-		FileLoadRequest* request;
-		CriFileLoader_LoadAsync(path, offset, load_size, buffer, buffer_size, &request);
-		thread_local static char path_buffer[64]{};
-		CpkRequestToString(path_buffer, request);
-
-		path = path_buffer;
-	}
-
-	return CRIERR_OK;
-}
-
 
 void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 {
+	CriFsIoML_AddDevice(*criFsInterfaceWin);
+	CriFsIoML_AddDevice(cpk_io_interface);
+	CriFsIoML_AddDevice(cpk_req_io_interface);
+	CriFsIoML_SetVFS(loader.vfs);
+
 	g_cri = &cri_table;
 	g_binder = loader.binder.get();
 	WRITE_CALL(0x007629C5, criFsBinder_CreateOverride);
@@ -122,6 +119,5 @@ void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 	
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindSoundCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindSoundCpk);
-	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, LoadFile);
 	criFs_SetSelectIoCallback(SelectIoGens);
 }

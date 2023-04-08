@@ -177,20 +177,23 @@ HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 	return result;
 }
 
+#if 0
 HOOK(CriError, CRIAPI, crifsbinder_findWithNameEx, nullptr, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists)
 {
-	const char* ogPath = path;
-	const auto* entry = g_loader->vfs->get_entry(path);
-	thread_local std::string rePath;
-	if (entry != nullptr)
-	{
-		rePath = entry->full_path();
-		path = rePath.c_str();
-	}
+	//const char* ogPath = path;
+	//const auto* entry = g_loader->vfs->get_entry(path);
+	//thread_local std::string rePath;
+	//if (entry != nullptr)
+	//{
+	//	rePath = entry->full_path();
+	//	path = rePath.c_str();
+	//}
 
-	const auto result = originalcrifsbinder_findWithNameEx(bndrhn, ogPath, a3, finfo, a5, exists);
+	const auto result = originalcrifsbinder_findWithNameEx(bndrhn, path, a3, finfo, a5, exists);
+	
 	return result;
 }
+#endif
 
 void InitCri(ModLoader* loader)
 {
@@ -211,7 +214,7 @@ void InitCri(ModLoader* loader)
 	INSTALL_HOOK_ADDRESS(criFsiowin_Open, cri.criFsiowin_Open);
 	INSTALL_HOOK_ADDRESS(criFsLoader_Load, cri.criFsLoader_Load);
 	INSTALL_HOOK_ADDRESS(criFsBinder_Unbind, cri.criFsBinder_Unbind);
-	INSTALL_HOOK_ADDRESS(crifsbinder_findWithNameEx, cri.crifsbinder_findWithNameEx);
+	// INSTALL_HOOK_ADDRESS(crifsbinder_findWithNameEx, cri.crifsbinder_findWithNameEx);
 
 	// Restore original addresses
 	cri.criFsBinder_BindCpk = originalcrifsbinder_BindCpkInternal;
@@ -219,5 +222,5 @@ void InitCri(ModLoader* loader)
 	cri.criFsiowin_Open = originalcriFsiowin_Open;
 	cri.criFsLoader_Load = originalcriFsLoader_Load;
 	cri.criFsBinder_Unbind = originalcriFsBinder_Unbind;
-	cri.crifsbinder_findWithNameEx = originalcrifsbinder_findWithNameEx;
+	// cri.crifsbinder_findWithNameEx = originalcrifsbinder_findWithNameEx;
 }

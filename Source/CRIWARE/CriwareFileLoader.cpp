@@ -5,10 +5,17 @@
 
 namespace
 {
+	struct CriBindInfo
+	{
+		std::string name{};
+		std::unique_ptr<uint8_t[]> work{};
+		size_t work_size{};
+	};
+
 	const CriFunctionTable* cri{};
 	CriFsBinderHn g_binder{};
 	std::vector<std::pair<CriFsLoaderHn, FileLoadRequest*>> g_loaders{};
-	std::unordered_map<CriFsBindId, std::string> g_bind_id_map{};
+	std::unordered_map<CriFsBindId, CriBindInfo> g_bind_id_map{};
 	std::thread g_request_worker{};
 	std::mutex g_request_mutex{};
 	std::vector<std::unique_ptr<FileLoadRequest>> g_requests{};
@@ -149,7 +156,10 @@ CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id)
 {
 	CriFsBindId id{};
 	CriError err;
-	if ((err = cri->criFsBinder_BindCpk(g_binder, nullptr, path, malloc(0x400000), 0x400000, &id)) != CRIERR_OK)
+	constexpr size_t work_size = 0x400000;
+	auto work = std::make_unique<uint8_t[]>(work_size);
+
+	if ((err = cri->criFsBinder_BindCpk(g_binder, nullptr, path, work.get(), work_size, &id)) != CRIERR_OK)
 	{
 		return err;
 	}
@@ -159,7 +169,8 @@ CriError CriFileLoader_BindCpk(const char* path, CriFsBindId* out_id)
 		*out_id = id;
 	}
 
-	g_bind_id_map[id] = path;
+	g_bind_id_map[id] = { path, std::move(work), work_size };
+
 	CriFsBinderStatus status{};
 	while (status != CRIFSBINDER_STATUS_COMPLETE)
 	{
@@ -183,7 +194,9 @@ CriError CriFileLoader_BindDirectory(const char* path, CriFsBindId* out_id)
 
 CriError CriFileLoader_Unbind(CriFsBindId id)
 {
-	return cri->criFsBinder_Unbind(id);
+	const CriError result = cri->criFsBinder_Unbind(id);
+	g_bind_id_map.erase(id);
+	return result;
 }
 
 CriError CriFileLoader_Load(const char* path, int64_t offset, int64_t load_size, void* buffer, int64_t buffer_size)
@@ -243,7 +256,7 @@ CriError CriFileLoader_LoadAsync(const char* path, int64_t offset, int64_t load_
 CriError CriFileLoader_DeleteRequest(FileLoadRequest* request)
 {
 	std::lock_guard guard{ g_request_mutex };
-	std::erase_if(g_requests, [&](const auto& r) { return r.get() == request; });
+	std::erase_if(g_requests, [request](const auto& r) { return r.get() == request; });
 	return CRIERR_OK;
 }
 

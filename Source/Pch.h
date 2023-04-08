@@ -5,6 +5,7 @@
 #define MODLOADER_IMPLEMENTATION
 
 #define BASE_ADDRESS 0x400000
+#define NOMINMAX
 #include <Windows.h>
 #include <detours.h>
 

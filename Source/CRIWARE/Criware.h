@@ -10,8 +10,6 @@ typedef uint64_t CriUint64;
 typedef CriUint32 CriFsBindId;
 typedef CriSint32 CriBool;
 
-typedef uint32_t CriFsFileMode;
-typedef uint32_t CriFsFileAccess;
 typedef void* CriFsFileHn;
 
 /// The layout of this structure usually varies with the version of CRIWARE
@@ -101,6 +99,30 @@ typedef enum {
 	/* enum be 4bytes */
 	CRIFS_IO_ERROR_ENUM_BE_SINT32 = 0x7FFFFFFF
 } CriFsIoError;
+
+typedef enum {
+	CRIFS_FILE_ACCESS_READ = 0,
+	CRIFS_FILE_ACCESS_WRITE = 1,
+	CRIFS_FILE_ACCESS_READ_WRITE = 2,
+
+	/* enum be 4bytes */
+	CRIFS_FILE_ACCESS_ENUM_BE_SINT32 = 0x7FFFFFFF
+} CriFsFileAccess;
+
+typedef enum {
+	CRIFS_FILE_MODE_APPEND = 0,
+	CRIFS_FILE_MODE_CREATE = 1,
+	CRIFS_FILE_MODE_CREATE_NEW = 2,
+	CRIFS_FILE_MODE_OPEN = 3,
+	CRIFS_FILE_MODE_OPEN_OR_CREATE = 4,
+	CRIFS_FILE_MODE_TRUNCATE = 5,
+
+	/* Special case*/
+	CRIFS_FILE_MODE_OPEN_WITHOUT_DECRYPTING = 10,	/*EN< Opens a file (Without decrypting)	*/
+
+	/* enum be 4bytes */
+	CRIFS_FILE_MODE_ENUM_BE_SINT32 = 0x7FFFFFFF
+} CriFsFileMode;
 
 // Only including the common functions
 typedef struct CriFsIoInterfaceTag {

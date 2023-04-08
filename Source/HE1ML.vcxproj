@@ -177,6 +177,7 @@
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
     <ClInclude Include="CRIWARE\Criware.h" />
     <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
+    <ClInclude Include="CRIWARE\ModLoaderDevice.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
@@ -197,6 +198,8 @@
     <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
     <ClCompile Include="CRIWARE\Criware.cpp" />
     <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
+    <ClCompile Include="CRIWARE\ModLoaderDevice.cpp" />
+    <ClCompile Include="CRIWARE\Win32Device.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
