@@ -90,7 +90,12 @@ EBindError FileBinder::BindFile(const char* path, const char* destination, size_
 	{
 		lookup_cache.clear();
 
-		auto* entry = vfs.make_entry(path);
+		auto* entry = vfs.get_entry(path);
+		if (entry == nullptr)
+		{
+			entry = vfs.make_entry(path);
+		}
+
 		size_t bindId = 0;
 		if (entry->has_data<size_t>())
 		{

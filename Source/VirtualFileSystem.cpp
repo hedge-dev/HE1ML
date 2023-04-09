@@ -61,7 +61,7 @@ std::string VirtualFileSystem::Entry::full_path() const
 		path.insert(0, current->name);
 		if (!current->parent->is_root())
 		{
-			path.insert(0, "/");
+			path.insert(0, "\\");
 		}
 
 		current = current->parent;
@@ -69,10 +69,10 @@ std::string VirtualFileSystem::Entry::full_path() const
 
 	if (current != nullptr && (start->attribute & eEntryAttribute_Directory))
 	{
-		path.append("/");
+		path.append("\\");
 	}
 
-	return path.empty() ? "/" : path;
+	return path.empty() ? "\\" : path;
 }
 
 void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::function<bool(Entry*)>& callback, int iterate_flags)
@@ -85,8 +85,10 @@ void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::fu
 		return;
 	}
 
-	for (auto& part : p)
+	for (auto pit = p.begin(); pit != p.end(); ++pit)
 	{
+		auto& part = *pit;
+
 		if (part.empty())
 		{
 			continue;
@@ -133,6 +135,25 @@ void VirtualFileSystem::Entry::walk(Entry* root, const char* path, const std::fu
 		auto it = current->children.find(part.string());
 		if (it == current->children.end())
 		{
+			if (iterate_flags & VFS_ITERATE_REPORT_NULL_WALK)
+			{
+				Entry entry{ current };
+				entry.attribute |= eEntryAttribute_Null;
+
+				while (pit != p.end())
+				{
+					entry.name.append(pit->string());
+					if (pit != --p.end())
+					{
+						entry.name.append("\\");
+					}
+
+					++pit;
+				}
+
+				callback(&entry);
+			}
+
 			return;
 		}
 

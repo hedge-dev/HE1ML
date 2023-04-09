@@ -7,10 +7,12 @@
 
 void ModLoader::Init(const char* configPath)
 {
-	if (AttachConsole(ATTACH_PARENT_PROCESS))
+	if (!AttachConsole(ATTACH_PARENT_PROCESS))
 	{
-		freopen("CONOUT$", "w", stdout);
+		AllocConsole();
 	}
+
+	freopen("CONOUT$", "w", stdout);
 	config_path = configPath;
 
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));

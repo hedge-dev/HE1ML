@@ -14,6 +14,40 @@ namespace
 	std::vector<const CriFsIoInterfaceTag*> g_devices{};
 	VirtualFileSystem* g_vfs{};
 	std::unordered_set<CriFsIoMLHandle*> g_handles{};
+	std::mutex g_lock{};
+}
+
+std::string CriFsIoML_GetReplacePath(const char* path)
+{
+	if (g_vfs)
+	{
+		std::string result{};
+		g_vfs->root->walk(path, [&result](auto* entry) -> bool
+			{
+				if (entry->is_null())
+				{
+					if (entry->parent->is_root())
+					{
+						return false;
+					}
+
+					result = entry->full_path();
+					return false;
+				}
+
+				if (entry->is_directory())
+				{
+					return true;
+				}
+
+				result = entry->full_path();
+				return true;
+			}, VFS_ITERATE_RESOLVE_ALL | VFS_ITERATE_REPORT_NULL_WALK);
+
+		return result;
+	}
+
+	return {};
 }
 
 CriFsIoError CRIAPI CriFsIoML_Exists(const CriChar8* path, CriBool* result)
@@ -65,6 +99,7 @@ CriFsIoError CRIAPI CriFsIoML_Rename(const CriChar8* old_path, const CriChar8* n
 
 CriFsIoError CRIAPI CriFsIoML_Open(const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn)
 {
+	std::lock_guard guard{ g_lock };
 	if (!path || !filehn)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -75,16 +110,12 @@ CriFsIoError CRIAPI CriFsIoML_Open(const CriChar8* path, CriFsFileMode mode, Cri
 		path += 4;
 	}
 
-	std::string newPath{};
-	if (g_vfs)
+	if (strstr(path, "ghz200") != nullptr)
 	{
-		const auto* entry = g_vfs->get_entry(path);
-		if (entry)
-		{
-			newPath = entry->full_path();
-		}
+		LOG("CriFsIoML_Open: %s", path);
 	}
 
+	const std::string newPath = CriFsIoML_GetReplacePath(path);
 	if (!newPath.empty())
 	{
 		path = newPath.c_str();
@@ -109,6 +140,7 @@ CriFsIoError CRIAPI CriFsIoML_Open(const CriChar8* path, CriFsFileMode mode, Cri
 
 CriFsIoError CRIAPI CriFsIoML_Close(CriFsFileHn filehn)
 {
+	std::lock_guard guard{ g_lock };
 	if (!filehn)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -333,16 +365,7 @@ size_t CriFsIoML_ResolveDevice(const char* path)
 		path += 4;
 	}
 
-	std::string newPath{};
-	if (g_vfs)
-	{
-		const auto* entry = g_vfs->get_entry(path);
-		if (entry != nullptr)
-		{
-			newPath = entry->full_path();
-		}
-	}
-
+	const std::string newPath = CriFsIoML_GetReplacePath(path);
 	if (!newPath.empty())
 	{
 		path = newPath.c_str();

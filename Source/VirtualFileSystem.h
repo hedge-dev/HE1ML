@@ -6,6 +6,7 @@
 
 #define VFS_ITERATE_RESOLVE_DIR_LINK 1
 #define VFS_ITERATE_RESOLVE_FILE_LINK 2
+#define VFS_ITERATE_REPORT_NULL_WALK 4
 #define VFS_ITERATE_RESOLVE_ALL (VFS_ITERATE_RESOLVE_DIR_LINK | VFS_ITERATE_RESOLVE_FILE_LINK)
 
 enum EEntryAttribute
@@ -13,6 +14,7 @@ enum EEntryAttribute
 	eEntryAttribute_None = 0,
 	eEntryAttribute_Directory = 1,
 	eEntryAttribute_Deleted = 2,
+	eEntryAttribute_Null = 4,
 };
 
 class VirtualFileSystem
@@ -29,9 +31,10 @@ public:
 		std::variant<std::monostate, size_t, std::string> userdata{};
 
 		Entry() = default;
-		Entry(std::string in_name) : name(std::move(in_name)) {}
-		Entry(Entry* in_parent) : parent(in_parent) {}
-		Entry(std::string in_name, Entry* in_parent) : name(std::move(in_name)), parent(in_parent) {}
+		Entry(int32_t attribute) : attribute(attribute) {}
+		Entry(std::string name) : name(std::move(name)) {}
+		Entry(Entry* parent) : parent(parent) {}
+		Entry(std::string name, Entry* parent) : name(std::move(name)), parent(parent) {}
 
 		template<typename T>
 		T& get_data()
@@ -128,9 +131,14 @@ public:
 		{
 			return attribute & eEntryAttribute_Directory;
 		}
+
+		[[nodiscard]] bool is_null() const
+		{
+			return attribute & eEntryAttribute_Null;
+		}
 	};
 
-	std::unique_ptr<Entry> root{ new Entry() };
+	std::unique_ptr<Entry> root{ new Entry(eEntryAttribute_Directory) };
 	void make_link(const char* path, const char* link);
 	void make_deleted(const char* path);
 
