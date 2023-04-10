@@ -3,8 +3,7 @@
 #include <filesystem>
 #include "Utilities.h"
 #include "CpkAdvancedConfig.h"
-
-namespace fs = std::filesystem;
+#include "Game.h"
 
 bool Mod::Init(const std::string& path)
 {
@@ -20,7 +19,7 @@ bool Mod::Init(const std::string& path)
 
 	if (cpksSection.valid())
 	{
-		for (const auto& property : cpksSection)
+		for (const auto property : cpksSection)
 		{
 			InitAdvancedCpk(strtrim(property.value(), "\"").c_str());
 		}
@@ -29,7 +28,7 @@ bool Mod::Init(const std::string& path)
 	title = strtrim(descSection["Title"], "\"");
 	LOG("Loading mod %s", title.c_str())
 
-	const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
+		const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
 	char buf[32];
 
 	for (int i = 0; i < includeDirCount; i++)
@@ -57,6 +56,20 @@ bool Mod::Init(const std::string& path)
 
 	SetDllDirectoryA(nullptr);
 	GetEvents("ProcessMessage", msg_processors);
+
+	switch (Game::GetExecutingGame().id)
+	{
+		case eGameID_SonicGenerations:
+			loader->binder->BindDirectory("Sound/", (root / "Sound").string().c_str());
+
+		case eGameID_SonicLostWorld:
+			loader->binder->BindDirectory("movie/", (root / "movie").string().c_str());
+			break;
+
+		default:
+			break;
+	}
+
 	return true;
 }
 
