@@ -26,9 +26,9 @@ bool Mod::Init(const std::string& path)
 	}
 
 	title = strtrim(descSection["Title"], "\"");
-	LOG("Loading mod %s", title.c_str())
+	LOG("Loading mod %s", title.c_str());
 
-		const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
+	const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
 	char buf[32];
 
 	for (int i = 0; i < includeDirCount; i++)
