@@ -16,10 +16,10 @@
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="CpkAdvancedConfig.h" />
-    <ClInclude Include="Game\BlueBlur\hhSharedString.h" />
-    <ClInclude Include="Game\BlueBlur\hhCowData.h" />
-    <ClInclude Include="Game\BlueBlur\hhAllocator.h" />
     <ClInclude Include="CRIWARE\ModLoaderDevice.h" />
+    <ClInclude Include="CRIWARE\Win32Device.h" />
+    <ClInclude Include="Game\Sonic2013\GameVariables.h" />
+    <ClInclude Include="Game\BlueBlur\GameVariables.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -31,7 +31,6 @@
     <ClCompile Include="VirtualFileSystem.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />
-    <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />
     <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
@@ -41,6 +40,8 @@
     <ClCompile Include="CpkAdvancedConfig.cpp" />
     <ClCompile Include="CRIWARE\Win32Device.cpp" />
     <ClCompile Include="CRIWARE\ModLoaderDevice.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
+    <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

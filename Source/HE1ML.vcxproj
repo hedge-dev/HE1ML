@@ -178,13 +178,13 @@
     <ClInclude Include="CRIWARE\Criware.h" />
     <ClInclude Include="CRIWARE\CriwareFileLoader.h" />
     <ClInclude Include="CRIWARE\ModLoaderDevice.h" />
+    <ClInclude Include="CRIWARE\Win32Device.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
-    <ClInclude Include="Game\BlueBlur\hhAllocator.h" />
-    <ClInclude Include="Game\BlueBlur\hhCowData.h" />
-    <ClInclude Include="Game\BlueBlur\hhSharedString.h" />
+    <ClInclude Include="Game\BlueBlur\GameVariables.h" />
+    <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Mod.h" />
@@ -203,7 +203,8 @@
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
-    <ClCompile Include="Game\Sonic2013\LWGameFunctions.cpp" />
+    <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />

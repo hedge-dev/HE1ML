@@ -1,5 +1,7 @@
 #include "Pch.h"
 #include "Game.h"
+#include <Game/BlueBlur/GameVariables.h>
+#include <Game/Sonic2013/GameVariables.h>
 
 Game executing_game{};
 
@@ -20,11 +22,11 @@ const Game& Game::GetExecutingGame()
 	switch (nt_header->FileHeader.TimeDateStamp)
 	{
 		case timestamp_gens: 
-			executing_game = { eGameID_SonicGenerations, "Sonic Generations", GetValue_Gens };
+			executing_game = { eGameID_SonicGenerations, "Sonic Generations", bb::GetValue };
 			break;
 
 		case timestamp_slw:
-			executing_game = { eGameID_SonicLostWorld, "Sonic Lost World", GetValue_SLW };
+			executing_game = { eGameID_SonicLostWorld, "Sonic Lost World", lw::GetValue };
 			break;
 
 		default:
@@ -35,17 +37,8 @@ const Game& Game::GetExecutingGame()
 	return executing_game;
 }
 
-bool GetValue_SLW(size_t key, void* value)
-{
-	return false;
-}
 
-bool GetValue_Gens(size_t key, void* value)
-{
-	return false;
-}
-
-bool GetValue_Null(size_t key, void* value)
+bool GetValue_Null(size_t key, void** value)
 {
 	return false;
 }

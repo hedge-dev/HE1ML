@@ -1,11 +1,19 @@
 #include "Criware.h"
+#include "Win32Device.h"
+#include <FileBinder.h>
+
+namespace
+{
+	FileBinder* g_binder{};
+}
 
 struct CriFsIoWinHandle
 {
+	HANDLE file{};
 	std::string name{};
 	CriUint64 size{};
-	CriUint64 bytes_read{};
-	HANDLE file{};
+	DWORD bytes_read{};
+	DWORD bytes_written{};
 };
 
 CriFsIoError CRIAPI CriFsIoWin_Exists(const CriChar8* path, CriBool* result)
@@ -13,6 +21,12 @@ CriFsIoError CRIAPI CriFsIoWin_Exists(const CriChar8* path, CriBool* result)
 	if (!path || !result)
 	{
 		return CRIFS_IO_ERROR_NG;
+	}
+
+	if (g_binder && g_binder->FileExists(path) == eBindError_None)
+	{
+		*result = true;
+		return CRIFS_IO_ERROR_OK;
 	}
 
 	const auto attributes = GetFileAttributesA(path);
@@ -55,6 +69,12 @@ CriFsIoError CRIAPI CriFsIoWin_Open(const CriChar8* path, CriFsFileMode mode, Cr
 	if (!path || !filehn)
 	{
 		return CRIFS_IO_ERROR_NG;
+	}
+
+	std::string replacePath{};
+	if (g_binder && g_binder->ResolvePath(path, &replacePath))
+	{
+		path = replacePath.c_str();
 	}
 
 	auto* handle = new CriFsIoWinHandle();
@@ -118,18 +138,115 @@ CriFsIoError CRIAPI CriFsIoWin_Read(CriFsFileHn filehn, CriSint64 offset, CriSin
 		return CRIFS_IO_ERROR_NG;
 	}
 
-	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
-	if (offset != handle->bytes_read)
+	auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	LARGE_INTEGER offset_li;
+	offset_li.QuadPart = offset;
+	if (!SetFilePointerEx(handle->file, offset_li, nullptr, FILE_BEGIN))
 	{
-		LARGE_INTEGER offset_li;
-		offset_li.QuadPart = offset;
-		if (!SetFilePointerEx(handle->file, offset_li, nullptr, FILE_BEGIN))
-		{
-			return CRIFS_IO_ERROR_NG;
-		}
+		return CRIFS_IO_ERROR_NG;
 	}
+
+	if (!ReadFile(handle->file, buffer, static_cast<DWORD>(read_size), &handle->bytes_read, nullptr))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	return CRIFS_IO_ERROR_OK;
 }
 
+CriFsIoError CRIAPI CriFsIoWin_IsReadComplete(CriFsFileHn filehn, CriBool* complete)
+{
+	if (!filehn || !complete)
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	*complete = true;
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_GetReadSize(CriFsFileHn filehn, CriSint64* size)
+{
+	if (!filehn || !size)
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	*size = handle->bytes_read;
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_Write(CriFsFileHn filehn, CriSint64 offset, CriSint64 write_size, void* buffer, CriSint64 buffer_size)
+{
+	auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	LARGE_INTEGER offset_li;
+	offset_li.QuadPart = offset;
+	if (!SetFilePointerEx(handle->file, offset_li, nullptr, FILE_BEGIN))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	if (!WriteFile(handle->file, buffer, static_cast<DWORD>(write_size), &handle->bytes_written, nullptr))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_GetWriteSize(CriFsFileHn filehn, CriSint64* size)
+{
+	if (!filehn || !size)
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	*size = handle->bytes_written;
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_Flush(CriFsFileHn filehn)
+{
+	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	if (!FlushFileBuffers(handle->file))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_Resize(CriFsFileHn filehn, CriSint64 size)
+{
+	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	LARGE_INTEGER size_li;
+	size_li.QuadPart = size;
+	if (!SetFilePointerEx(handle->file, size_li, nullptr, FILE_BEGIN))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	if (!SetEndOfFile(handle->file))
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	return CRIFS_IO_ERROR_OK;
+}
+
+CriFsIoError CRIAPI CriFsIoWin_GetNativeFileHandle(CriFsFileHn filehn, void** native_filehn)
+{
+	if (!filehn || !native_filehn)
+	{
+		return CRIFS_IO_ERROR_NG;
+	}
+
+	const auto* handle = static_cast<CriFsIoWinHandle*>(filehn);
+	*native_filehn = handle->file;
+	return CRIFS_IO_ERROR_OK;
+}
 
 CriFsIoInterfaceTag win_io_interface
 {
@@ -139,5 +256,18 @@ CriFsIoInterfaceTag win_io_interface
 	CriFsIoWin_Open,
 	CriFsIoWin_Close,
 	CriFsIoWin_GetFileSize,
-
+	CriFsIoWin_Read,
+	CriFsIoWin_IsReadComplete,
+	nullptr,
+	CriFsIoWin_GetReadSize,
+	CriFsIoWin_Write,
+	CriFsIoWin_IsReadComplete,
+	nullptr,
+	CriFsIoWin_GetWriteSize,
+	CriFsIoWin_Flush,
 };
+
+void CriFsIoWin_SetBinder(FileBinder* binder)
+{
+	g_binder = binder;
+}

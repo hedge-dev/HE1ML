@@ -7,11 +7,10 @@
 #include <Game/BlueBlur/CriwareGenerations.h>
 
 ModLoader* g_loader{};
+CriFunctionTable* g_cri{};
+
 CriFsBindId g_dir_bind{};
 std::unordered_set<std::string> g_cpk_binds{};
-CriFunctionTable cri{};
-bool g_redir_enabled{ true };
-CriFsBinderHn g_override_binder{};
 
 void* g_cri_hooks[ML_CRIWARE_HOOK_MAX]{};
 
@@ -40,12 +39,6 @@ void criErr_Callback(const CriChar8* errid, CriUint32 p1, CriUint32 p2, CriUint3
 
 HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid)
 {
-	if (!g_redir_enabled)
-	{
-		return originalcrifsbinder_BindCpkInternal(bndrhn, srcbndrhn, path, work, worksize, bndrid);
-	}
-
-	cri.criErr_SetCallback(criErr_Callback);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_BINDCPK, CriFsBindCpkHook_t, bndrhn, srcbndrhn, path, work, worksize, bndrid);
 
 	std::vector<char> path_buffer{ path, path + strlen(path) + 1 };
@@ -72,9 +65,11 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 
 	if (!g_dir_bind)
 	{
-		g_override_binder = bndrhn;
-		cri.criFsBinder_BindDirectory(bndrhn, srcbndrhn, c_dir_stub, malloc(worksize), worksize, &g_dir_bind);
-		cri.criFsBinder_SetPriority(g_dir_bind, 90000000);
+		CriSint32 dirworksize{};
+		g_cri->criFsBinder_GetWorkSizeForBindDirectory(bndrhn, c_dir_stub, &dirworksize);
+
+		g_cri->criFsBinder_BindDirectory(bndrhn, srcbndrhn, c_dir_stub, malloc(dirworksize), dirworksize, &g_dir_bind);
+		g_cri->criFsBinder_SetPriority(g_dir_bind, 90000000);
 	}
 
 	printf("crifsbinder_BindCpkInternal: %s\n", path);
@@ -118,7 +113,7 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 
 HOOK(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists)
 {
-	LOG("criFsIoWin_Exists: %s", path)
+	LOG("criFsIoWin_Exists: %s", path);
 	if (!path || !exists)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -152,17 +147,8 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 {
 	LOG("criFsLoader_Load: %s", path);
 
-	//const char* ogPath = path;
-	//const auto* entry = g_loader->vfs->get_entry(path);
-	//thread_local std::string rePath{};
-	//if (entry != nullptr)
-	//{
-	//	rePath = entry->full_path();
-	//	path = rePath.c_str();
-	//}
-
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
-	const CriError result =  originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
+	const CriError result = originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
 	return result;
 }
@@ -170,57 +156,65 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 {
 	LOG("criFsBinder_Unbind: %d", bndrid);
+
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, CriFsUnbindHook_t, bndrid);
-	const CriError result =  originalcriFsBinder_Unbind(bndrid);
+	const CriError result = originalcriFsBinder_Unbind(bndrid);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_UNBIND, CriFsUnbindHook_t, bndrid);
 
 	return result;
 }
 
-#if 0
-HOOK(CriError, CRIAPI, crifsbinder_findWithNameEx, nullptr, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists)
-{
-	//const char* ogPath = path;
-	//const auto* entry = g_loader->vfs->get_entry(path);
-	//thread_local std::string rePath;
-	//if (entry != nullptr)
-	//{
-	//	rePath = entry->full_path();
-	//	path = rePath.c_str();
-	//}
-
-	const auto result = originalcrifsbinder_findWithNameEx(bndrhn, path, a3, finfo, a5, exists);
-	
-	return result;
-}
-#endif
 
 void InitCri(ModLoader* loader)
 {
 	g_loader = loader;
-	//if (!Game::GetExecutingGame().GetValue(eGameValueKey_CriwareTable, &cri))
-	//{
-	//	LOG("Skipping CRIWARE redirection")
-	//	return;
-	//}
+
+	if (!Game::GetExecutingGame().GetValue(eGameValueKey_CriwareTable, reinterpret_cast<void**>(&g_cri)))
+	{
+		LOG("Skipping CRIWARE redirection, CRIWARE table not found")
+		return;
+	}
+
+	if (g_cri->criFsBinder_BindCpk == nullptr ||
+		g_cri->criFsIoWin_Exists == nullptr ||
+		g_cri->criFsiowin_Open == nullptr ||
+		g_cri->criFsBinder_BindDirectory == nullptr ||
+		g_cri->criFsBinder_GetStatus == nullptr ||
+		g_cri->criFsBinder_SetPriority == nullptr ||
+		g_cri->criFsBinder_GetWorkSizeForBindDirectory == nullptr)
+	{
+		LOG("Skipping CRIWARE redirection");
+		return;
+	}
 
 	if (Game::GetExecutingGame().id == eGameID_SonicGenerations)
 	{
-		CriGensInit(cri, *loader);
+		CriGensInit(*g_cri, *loader);
 	}
 
-	INSTALL_HOOK_ADDRESS(crifsbinder_BindCpkInternal, cri.criFsBinder_BindCpk);
-	INSTALL_HOOK_ADDRESS(criFsIoWin_Exists, cri.criFsIoWin_Exists);
-	INSTALL_HOOK_ADDRESS(criFsiowin_Open, cri.criFsiowin_Open);
-	INSTALL_HOOK_ADDRESS(criFsLoader_Load, cri.criFsLoader_Load);
-	INSTALL_HOOK_ADDRESS(criFsBinder_Unbind, cri.criFsBinder_Unbind);
-	// INSTALL_HOOK_ADDRESS(crifsbinder_findWithNameEx, cri.crifsbinder_findWithNameEx);
+	INSTALL_HOOK_ADDRESS(crifsbinder_BindCpkInternal, g_cri->criFsBinder_BindCpk);
+	INSTALL_HOOK_ADDRESS(criFsIoWin_Exists, g_cri->criFsIoWin_Exists);
+	INSTALL_HOOK_ADDRESS(criFsiowin_Open, g_cri->criFsiowin_Open);
+
+	if (g_cri->criFsLoader_Load != nullptr)
+	{
+		INSTALL_HOOK_ADDRESS(criFsLoader_Load, g_cri->criFsLoader_Load);
+		g_cri->criFsLoader_Load = originalcriFsLoader_Load;
+	}
+
+	if (g_cri->criFsBinder_Unbind != nullptr)
+	{
+		INSTALL_HOOK_ADDRESS(criFsBinder_Unbind, g_cri->criFsBinder_Unbind);
+		g_cri->criFsBinder_Unbind = originalcriFsBinder_Unbind;
+	}
+
+	if (g_cri->criErr_SetCallback != nullptr)
+	{
+		g_cri->criErr_SetCallback(criErr_Callback);
+	}
 
 	// Restore original addresses
-	cri.criFsBinder_BindCpk = originalcrifsbinder_BindCpkInternal;
-	cri.criFsIoWin_Exists = originalcriFsIoWin_Exists;
-	cri.criFsiowin_Open = originalcriFsiowin_Open;
-	cri.criFsLoader_Load = originalcriFsLoader_Load;
-	cri.criFsBinder_Unbind = originalcriFsBinder_Unbind;
-	// cri.crifsbinder_findWithNameEx = originalcrifsbinder_findWithNameEx;
+	g_cri->criFsBinder_BindCpk = originalcrifsbinder_BindCpkInternal;
+	g_cri->criFsIoWin_Exists = originalcriFsIoWin_Exists;
+	g_cri->criFsiowin_Open = originalcriFsiowin_Open;
 }

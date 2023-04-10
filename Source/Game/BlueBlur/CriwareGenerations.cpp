@@ -12,23 +12,10 @@ namespace
 	const CriFunctionTable* g_cri{};
 	FileBinder* g_binder{};
 	std::unordered_map<CriFsBindId, CriFsBindId> g_bind_id_map{};
-
 }
 
-void crifsloader_set_status(CriFsLoaderHn loader, CriFsLoaderStatus status)
-{
-	criAtomic_TestAndSet(reinterpret_cast<long*>(static_cast<char*>(loader) + 156), status);
-}
 
-CriFsSelectIoCbFunc& criFsSelectIoFunc = *reinterpret_cast<CriFsSelectIoCbFunc*>(0x01B37484);
-CriFsIoInterfacePtr criFsInterfaceWin = reinterpret_cast<CriFsIoInterfacePtr>(0x01815F88);
-CriError criFs_SetSelectIoCallback(CriFsSelectIoCbFunc func)
-{
-	criFsSelectIoFunc = func;
-	return CRIERR_OK;
-}
-
-CriError SelectIoGens(const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
+HOOK(CriError, __cdecl, criFsIo_SelectIo, nullptr, const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
 {
 	LOG("SelectIoGens: %s", path);
 
@@ -71,13 +58,13 @@ CriError CRIAPI criFsBinder_CreateOverride(CriFsBinderHn* bndrhn)
 	return CRIERR_OK;
 }
 
-CriError BindSoundCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const CriChar8*& path, void*& work, CriSint32& worksize, CriFsBindId*& bndrid)
+CriError BindCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const CriChar8*& path, void*& work, CriSint32& worksize, CriFsBindId*& bndrid)
 {
 	if (!CriFileLoader_IsInit())
 	{
 		CriFileLoader_Init(*g_cri, {});
 	}
-	if (/*!bndrhn && */bndrid)
+	if (bndrid)
 	{
 		LOG("Binding sound cpk: %s", path);
 		CriFsBindId stub_id;
@@ -90,7 +77,7 @@ CriError BindSoundCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const Cri
 	return CRIERR_OK;
 }
 
-CriError UnbindSoundCpk(CriFsBindId& bndrid)
+CriError UnbindCpk(CriFsBindId& bndrid)
 {
 	if (g_bind_id_map.contains(bndrid))
 	{
@@ -107,17 +94,24 @@ CriError UnbindSoundCpk(CriFsBindId& bndrid)
 
 void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 {
-	CriFsIoML_AddDevice(*criFsInterfaceWin);
-	CriFsIoML_AddDevice(cpk_io_interface);
-	CriFsIoML_AddDevice(cpk_req_io_interface);
-	CriFsIoML_SetVFS(loader.vfs);
-
 	g_cri = &cri_table;
 	g_binder = loader.binder.get();
+
+	// Find the default interface
+	CriFsDeviceId id{};
+	CriFsIoInterfacePtr ioif{};
+	g_cri->criFsIo_SelectIo(".", &id, &ioif);
+
+	CriFsIoML_SetVFS(loader.vfs);
+
+	CriFsIoML_AddDevice(*ioif);
+	CriFsIoML_AddDevice(cpk_io_interface);
+	CriFsIoML_AddDevice(cpk_req_io_interface);
+
 	WRITE_CALL(0x007629C5, criFsBinder_CreateOverride);
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
-	
-	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindSoundCpk);
-	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindSoundCpk);
-	criFs_SetSelectIoCallback(SelectIoGens);
+	INSTALL_HOOK_ADDRESS(criFsIo_SelectIo, g_cri->criFsIo_SelectIo);
+
+	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindCpk);
+	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindCpk);
 }

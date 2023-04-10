@@ -144,7 +144,7 @@ typedef struct CriFsIoInterfaceTag {
 	CriFsIoError(CRIAPI* GetWriteSize)(CriFsFileHn filehn, CriSint64* write_size);
 	CriFsIoError(CRIAPI* Flush)(CriFsFileHn filehn);
 	CriFsIoError(CRIAPI* Resize)(CriFsFileHn filehn, CriSint64 size);
-	//CriFsIoError(CRIAPI* GetNativeFileHandle)(CriFsFileHn filehn, void** native_filehn);
+	CriFsIoError(CRIAPI* GetNativeFileHandle)(CriFsFileHn filehn, void** native_filehn);
 	//CriFsIoError(CRIAPI* SetAddReadProgressCallback)(CriFsFileHn filehn, void(*callback)(void*, CriSint32), void* obj);
 } CriFsIoInterface, *CriFsIoInterfacePtr;
 
@@ -239,23 +239,28 @@ typedef void (CRIAPI* CriErrCbFunc)(const CriChar8* errid, CriUint32 p1, CriUint
 
 struct CriFunctionTable
 {
-	FUNCTION_PTR(CriError, CRIAPI, criFs_CalculateWorkSizeForLibrary, 0x007D0413, const CriFsConfig* config, CriSint32* worksize);
-	FUNCTION_PTR(void, CRIAPI, criErr_SetCallback, 0x007C92C5, CriErrCbFunc cbf);
-	FUNCTION_PTR(void, CRIAPI, criFs_SetSelectIoCallback, nullptr, CriFsSelectIoCbFunc func);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindDirectory, 0x007D2AB8, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_SetPriority, 0x007D2512, CriFsBindId bndrid, CriSint32 priority);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_GetStatus, 0x007D3300, CriFsBindId bndrid, CriFsBinderStatus* status);
-	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_GetStatus, 0x007D42F1, CriFsLoaderHn loader, CriFsLoaderStatus* status);
+	// Required Functions
+	FUNCTION_PTR(CriError, CRIAPI, criFsIo_SelectIo, nullptr, const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindCpk, nullptr, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
+	FUNCTION_PTR(CriFsIoError, CRIAPI, criFsiowin_Open, nullptr, const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn);
+	FUNCTION_PTR(CriFsIoError, CRIAPI, criFsIoWin_Exists, nullptr, const CriChar8* path, CriBool* exists);
+	FUNCTION_PTR(CriFsIoError, CRIAPI, criFsBinder_GetWorkSizeForBindDirectory, nullptr, CriFsBinderHn bndrhn, const CriChar8* path, CriSint32* work_size);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindDirectory, nullptr, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_GetStatus, nullptr, CriFsBindId bndrid, CriFsBinderStatus* status);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_SetPriority, nullptr, CriFsBindId bndrid, CriSint32 priority);
 
-	FUNCTION_PTR(CriError, CRIAPI, crifsbinder_findWithNameEx, 0x007D335A, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Find, 0x007D38A3, CriFsBinderHn bndrhn, const CriChar8* filepath, CriFsBinderFileInfo* finfo, CriBool* exist);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Unbind, 0x007D2CCD, CriFsBindId bndrid);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindCpk, 0x007D35F4, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid);
-	FUNCTION_PTR(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, CriFsFileMode mode, CriFsFileAccess access, CriFsFileHn* filehn);
-	FUNCTION_PTR(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists);
-	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_Create, 0x007D52E2, CriFsLoaderHn* loader);
-	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Create, 0x007D297D, CriFsBinderHn* binder);
-	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_Load, 0x007D5026, CriFsLoaderHn loader,
+	// Optional Functions
+	FUNCTION_PTR(void, CRIAPI, criErr_SetCallback, nullptr, CriErrCbFunc cbf);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid);
+
+	FUNCTION_PTR(CriError, CRIAPI, criFs_CalculateWorkSizeForLibrary, nullptr, const CriFsConfig* config, CriSint32* worksize);
+	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_GetStatus, nullptr, CriFsLoaderHn loader, CriFsLoaderStatus* status);
+
+	FUNCTION_PTR(CriError, CRIAPI, crifsbinder_findWithNameEx, nullptr, CriFsBinderHn bndrhn, const CriChar8* path, void* a3, CriFsBinderFileInfo* finfo, void* a5, CriBool* exists);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Find, nullptr, CriFsBinderHn bndrhn, const CriChar8* filepath, CriFsBinderFileInfo* finfo, CriBool* exist);
+	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_Create, nullptr, CriFsLoaderHn* loader);
+	FUNCTION_PTR(CriError, CRIAPI, criFsBinder_Create, nullptr, CriFsBinderHn* binder);
+	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 		CriFsBinderHn binder, const CriChar8* path, CriSint64 offset,
 		CriSint64 load_size, void* buffer, CriSint64 buffer_size);
 };
