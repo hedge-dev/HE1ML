@@ -1,12 +1,44 @@
 // ReSharper disable CppExpressionWithoutSideEffects
-#include "Pch.h"
 #include "ModLoader.h"
+#include "Globals.h"
 #include "CRIWARE/Criware.h"
 #include "Utilities.h"
 #include "Mod.h"
 
 void ModLoader::Init(const char* configPath)
 {
+	g_loader = this;
+	g_binder = binder.get();
+	g_vfs = vfs;
+	
+	{
+		root_path.resize(MAX_PATH, 0);
+		do
+		{
+			const DWORD size = GetModuleFileNameA(GetModuleHandleA(nullptr), root_path.data(), root_path.length());
+			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			{
+				root_path.resize(size);
+				break;
+			}
+
+		} while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+		size_t pos = root_path.find_last_of('\\');
+		if (pos == std::string::npos)
+		{
+			pos = root_path.find_last_of('/');
+		}
+
+		if (pos != std::string::npos)
+		{
+			root_path.resize(pos);
+		}
+		else
+		{
+			root_path.clear();
+		}
+	}
+
 	if (!AttachConsole(ATTACH_PARENT_PROCESS))
 	{
 		AllocConsole();

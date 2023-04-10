@@ -57,17 +57,20 @@ bool Mod::Init(const std::string& path)
 	SetDllDirectoryA(nullptr);
 	GetEvents("ProcessMessage", msg_processors);
 
-	switch (Game::GetExecutingGame().id)
+	for (const auto& includePath : include_paths)
 	{
+		switch (Game::GetExecutingGame().id)
+		{
 		case eGameID_SonicGenerations:
-			loader->binder->BindDirectory("Sound/", (root / "Sound").string().c_str());
+			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
 
 		case eGameID_SonicLostWorld:
-			loader->binder->BindDirectory("movie/", (root / "movie").string().c_str());
+			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str());
 			break;
 
 		default:
 			break;
+		}
 	}
 
 	return true;

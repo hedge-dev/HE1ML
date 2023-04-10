@@ -185,6 +185,7 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
+    <ClInclude Include="Globals.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Mod.h" />

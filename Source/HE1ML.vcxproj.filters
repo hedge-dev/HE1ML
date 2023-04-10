@@ -20,6 +20,7 @@
     <ClInclude Include="CRIWARE\Win32Device.h" />
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
+    <ClInclude Include="Globals.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />

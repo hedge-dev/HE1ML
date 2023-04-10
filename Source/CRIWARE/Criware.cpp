@@ -5,9 +5,7 @@
 #include <unordered_set>
 #include <Game.h>
 #include <Game/BlueBlur/CriwareGenerations.h>
-
-ModLoader* g_loader{};
-CriFunctionTable* g_cri{};
+#include <Globals.h>
 
 CriFsBindId g_dir_bind{};
 std::unordered_set<std::string> g_cpk_binds{};
@@ -164,10 +162,20 @@ HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 	return result;
 }
 
+//HOOK(HANDLE, WINAPI, CreateFileAHook, PROC_ADDRESS("kernel32", "CreateFileA"), _In_ LPCSTR lpFileName,
+//	_In_ DWORD dwDesiredAccess,
+//	_In_ DWORD dwShareMode,
+//	_In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+//	_In_ DWORD dwCreationDisposition,
+//	_In_ DWORD dwFlagsAndAttributes,
+//	_In_opt_ HANDLE hTemplateFile)
+//{
+//	return originalCreateFileAHook(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+//}
 
 void InitCri(ModLoader* loader)
 {
-	g_loader = loader;
+	// INSTALL_HOOK(CreateFileAHook);
 
 	if (!Game::GetExecutingGame().GetValue(eGameValueKey_CriwareTable, reinterpret_cast<void**>(&g_cri)))
 	{
@@ -189,7 +197,7 @@ void InitCri(ModLoader* loader)
 
 	if (Game::GetExecutingGame().id == eGameID_SonicGenerations)
 	{
-		CriGensInit(*g_cri, *loader);
+		CriGensInit();
 	}
 
 	INSTALL_HOOK_ADDRESS(crifsbinder_BindCpkInternal, g_cri->criFsBinder_BindCpk);

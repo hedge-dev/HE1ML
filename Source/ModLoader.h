@@ -17,6 +17,7 @@ class ModLoader
 public:
 	std::string config_path{};
 	std::string database_path{};
+	std::string root_path{};
 	std::unique_ptr<FileBinder> binder{ new FileBinder()};
 	VirtualFileSystem* vfs{ &binder->vfs };
 	std::vector<std::unique_ptr<Mod>> mods{};

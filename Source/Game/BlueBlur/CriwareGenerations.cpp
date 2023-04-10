@@ -1,6 +1,5 @@
-#include "Pch.h"
 #include "CriwareGenerations.h"
-#include <FileBinder.h>
+#include <Globals.h>
 #include <CRIWARE/Criware.h>
 #include <CRIWARE/CriwareFileLoader.h>
 #include <CRIWARE/CpkRequestDevice.h>
@@ -9,8 +8,6 @@
 
 namespace
 {
-	const CriFunctionTable* g_cri{};
-	FileBinder* g_binder{};
 	std::unordered_map<CriFsBindId, CriFsBindId> g_bind_id_map{};
 }
 
@@ -91,18 +88,27 @@ CriError UnbindCpk(CriFsBindId& bndrid)
 	return CRIERR_OK;
 }
 
-
-void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
+HOOK(void, __cdecl, mfCiGetFullPath, 0x00798150, const char* path, char* out)
 {
-	g_cri = &cri_table;
-	g_binder = loader.binder.get();
+	originalmfCiGetFullPath(path, out);
+	const auto relativePath = std::filesystem::relative(out, g_loader->root_path);
 
+	std::string replacePath{};
+	if (g_binder->ResolvePath(relativePath.string().c_str(), &replacePath) == eBindError_None)
+	{
+		strcpy(out, replacePath.c_str());
+	}
+}
+
+
+void CriGensInit()
+{
 	// Find the default interface
 	CriFsDeviceId id{};
 	CriFsIoInterfacePtr ioif{};
 	g_cri->criFsIo_SelectIo(".", &id, &ioif);
 
-	CriFsIoML_SetVFS(loader.vfs);
+	CriFsIoML_SetVFS(g_vfs);
 
 	CriFsIoML_AddDevice(*ioif);
 	CriFsIoML_AddDevice(cpk_io_interface);
@@ -111,6 +117,7 @@ void CriGensInit(const CriFunctionTable& cri_table, ModLoader& loader)
 	WRITE_CALL(0x007629C5, criFsBinder_CreateOverride);
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
 	INSTALL_HOOK_ADDRESS(criFsIo_SelectIo, g_cri->criFsIo_SelectIo);
+	INSTALL_HOOK(mfCiGetFullPath);
 
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindCpk);
