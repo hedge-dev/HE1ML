@@ -46,6 +46,7 @@
     <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
     <ClCompile Include="StubFunctions.cpp" />
     <ClCompile Include="D3D9Hooks.cpp" />
+    <ClCompile Include="Game\BlueBlur\BBSaveHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

@@ -11,6 +11,7 @@ public:
 	std::string id;
 	std::string title;
 	std::string path;
+	std::string save_file;
 	std::filesystem::path root;
 	std::vector<std::string> include_paths;
 	std::vector<HMODULE> modules;

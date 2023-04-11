@@ -54,6 +54,10 @@ void ModLoader::Init(const char* configPath)
 	const Ini ini{ reinterpret_cast<char*>(file->memory) };
 	const auto cpkSection = ini["CPKREDIR"];
 
+	save_redirection = strcmp(cpkSection["EnableSaveFileRedirection"], "0") != 0;
+	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
+	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
+
 	std::string dbPath = strtrim(cpkSection["ModsDbIni"], "\"");
 	if (dbPath.empty())
 	{
@@ -62,6 +66,7 @@ void ModLoader::Init(const char* configPath)
 
 	LoadDatabase(dbPath);
 	InitCri(this);
+	g_game->EventProc(eGameEvent_Init, nullptr);
 	CommonLoader::RaiseInitializers();
 
 	if (!g_game->EventProc(eGameEvent_InstallUpdateEvent, nullptr))
@@ -128,6 +133,11 @@ bool ModLoader::RegisterMod(const std::string& path)
 		return false;
 	}
 
+	if (!mod->save_file.empty())
+	{
+		save_file = (mod->root / mod->save_file).string();
+	}
+
 	auto& m = mod_handles.emplace_back(new v0::Mod_t{ mod->title.c_str(), mod->path.c_str(), mod->id.c_str(), mod.get() });
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size()};
 	v0::ModInfo_t info{ &list, m.get(), 1 };
@@ -160,4 +170,14 @@ void ModLoader::OnUpdate()
 	}
 
 	CommonLoader::RaiseUpdates();
+}
+
+void ModLoader::SetSaveFile(const char* path)
+{
+	save_file = path;
+
+	if (save_redirection)
+	{
+		g_game->EventProc(eGameEvent_SetSaveFile, const_cast<char*>(path));
+	}
 }

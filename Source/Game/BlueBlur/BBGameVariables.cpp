@@ -79,17 +79,23 @@ namespace bb
 		return false;
 	}
 
+	void InitSaveRedir();
 	bool EventProc(size_t key, void* value)
 	{
-		if (key == eGameEvent_CriwareInit)
+		switch (key)
 		{
-			CriGensInit();
-			return true;
-		}
-		else if (key == eGameEvent_InstallUpdateEvent)
-		{
-			InstallUpdateEvent();
-			return true;
+			case eGameEvent_CriwareInit:
+				CriGensInit();
+				return true;
+
+			case eGameEvent_InstallUpdateEvent:
+				InstallUpdateEvent();
+				return true;
+
+			case eGameEvent_Init:
+				InitSaveRedir();
+				g_binder->BindDirectory("work\\", (g_loader->root_path + "\\work\\").c_str());
+				return true;
 		}
 
 		return false;

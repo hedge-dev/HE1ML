@@ -29,6 +29,7 @@ bool Mod::Init(const std::string& path)
 	}
 
 	id = strtrim(mainSection["ID"], "\"");
+	save_file = strtrim(mainSection["SaveFile"], "\"");
 	title = strtrim(descSection["Title"], "\"");
 
 	if (id.empty())

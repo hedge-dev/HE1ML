@@ -203,6 +203,7 @@
     <ClCompile Include="CRIWARE\ModLoaderDevice.cpp" />
     <ClCompile Include="CRIWARE\Win32Device.cpp" />
     <ClCompile Include="D3D9Hooks.cpp" />
+    <ClCompile Include="Game\BlueBlur\BBSaveHandler.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />

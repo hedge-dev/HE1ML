@@ -22,21 +22,21 @@ namespace v0
 	// We can't use std::vector because it's not guaranteed to be ABI compatible
 	struct ModList_t
 	{
-		const Mod_t** start;
-		const Mod_t** fin;
+		const Mod_t** first;
+		const Mod_t** last;
 		const Mod_t** capacity;
 
 #ifdef MODLOADER_IMPLEMENTATION
-		ModList_t() : start(nullptr), fin(nullptr), capacity(nullptr) {}
-		ModList_t(const Mod_t** start, const Mod_t** fin) : start(start), fin(fin), capacity(fin) {}
+		ModList_t() : first(nullptr), last(nullptr), capacity(nullptr) {}
+		ModList_t(const Mod_t** start, const Mod_t** fin) : first(start), last(fin), capacity(fin) {}
 #endif
 
 #ifdef __cplusplus
-		const Mod_t** begin() const { return start; }
-		const Mod_t** end() const { return fin; }
+		const Mod_t** begin() const { return first; }
+		const Mod_t** end() const { return last; }
 
-		const Mod_t*& operator[](size_t i) const { return start[i]; }
-		size_t size() const { return fin - start; }
+		const Mod_t*& operator[](size_t i) const { return first[i]; }
+		size_t size() const { return last - first; }
 #endif
 	};
 
@@ -69,6 +69,10 @@ public:
 	std::string config_path{};
 	std::string database_path{};
 	std::string root_path{};
+	std::string save_file{};
+	bool save_redirection{ false };
+	bool save_read_through{ true };
+
 	std::unique_ptr<FileBinder> binder{ new FileBinder() };
 	VirtualFileSystem* vfs{ &binder->vfs };
 	std::vector<std::unique_ptr<Mod>> mods{};
@@ -82,5 +86,13 @@ public:
 	bool RegisterMod(const std::string& path);
 	void BroadcastMessageImm(void* message) const;
 	void OnUpdate();
+
+	void SetUseSaveRedirection(bool value)
+	{
+		save_redirection = value;
+		SetSaveFile(save_file.c_str());
+	}
+
+	void SetSaveFile(const char* path);
 };
 #endif

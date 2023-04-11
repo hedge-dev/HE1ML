@@ -112,7 +112,11 @@ public:
 
 	const char* operator[](const char* key) const
 	{
-		return ini_property_value(ini, section_id, ini_find_property(ini, section_id, key, 0));
+		const auto property = ini_find_property(ini, section_id, key, 0);
+		if (property == INI_NOT_FOUND)
+			return "";
+
+		return ini_property_value(ini, section_id, property);
 	}
 };
 

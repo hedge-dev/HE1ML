@@ -18,7 +18,9 @@ enum EGameValueKey
 enum EGameEventKey
 {
 	eGameEvent_CriwareInit,
-	eGameEvent_InstallUpdateEvent
+	eGameEvent_InstallUpdateEvent,
+	eGameEvent_Init,
+	eGameEvent_SetSaveFile,
 };
 
 bool GetValue_Null(size_t key, void** value);
