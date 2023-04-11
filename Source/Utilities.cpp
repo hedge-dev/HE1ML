@@ -33,6 +33,22 @@ Buffer::~Buffer()
 	free();
 }
 
+HMODULE LoadSystemLibrary(const char* name)
+{
+	std::string windir{};
+	DWORD windirSize = GetSystemDirectoryA(nullptr, 0);
+
+	windir.reserve(windirSize + strlen(name) + 1);
+	windir.resize(windirSize + strlen(name));
+
+	GetSystemDirectoryA(windir.data(), windirSize);
+
+	windir[windirSize - 1] = '\\';
+	strcpy(windir.data() + windirSize, name);
+
+	return LoadLibraryA(windir.c_str());
+}
+
 Buffer* make_buffer(size_t size)
 {
 	return new Buffer(size);

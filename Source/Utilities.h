@@ -25,6 +25,7 @@ public:
 	~Buffer();
 };
 
+HMODULE LoadSystemLibrary(const char* name);
 Buffer* make_buffer(size_t size);
 Buffer* read_file(const char* path, bool text_file = false);
 std::string strtrim(const char* str, const char* s = nullptr);

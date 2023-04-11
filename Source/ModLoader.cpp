@@ -5,12 +5,27 @@
 #include "Utilities.h"
 #include "Mod.h"
 
+namespace v0
+{
+	struct Mod
+	{
+		const char* Name;
+		const char* Path;
+	};
+
+	struct ModInfo
+	{
+		std::vector<Mod*>* ModList;
+		Mod* CurrentMod;
+	};
+}
+
 void ModLoader::Init(const char* configPath)
 {
 	g_loader = this;
 	g_binder = binder.get();
 	g_vfs = vfs;
-	
+
 	{
 		root_path.resize(MAX_PATH, 0);
 		do
@@ -93,24 +108,13 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 			RegisterMod(strtrim(modPath, "\""));
 		}
 	}
+
+	for (const auto& mod : mods)
+	{
+		mod->RaiseEvent("PostInit", nullptr);
+	}
 }
 
-namespace v0
-{
-	struct Mod
-	{
-		const char* Name;
-		const char* Path;
-	};
-
-	struct ModInfo
-	{
-		std::vector<Mod*>* ModList;
-		Mod* CurrentMod;
-	};
-}
-
-wchar_t CurrentDirectory[2048];
 bool ModLoader::RegisterMod(const std::string& path)
 {
 	v0::Mod m{};
@@ -124,10 +128,12 @@ bool ModLoader::RegisterMod(const std::string& path)
 		return false;
 	}
 
-	GetCurrentDirectoryW(2048, CurrentDirectory);
-	SetCurrentDirectoryA(mod->root.string().c_str());
+	const auto root = mod->root.string();
+	SetDllDirectoryA(root.c_str());
+	SetCurrentDirectoryA(root.c_str());
 	mod->RaiseEvent("Init", &info);
-	SetCurrentDirectoryW(CurrentDirectory);
+
+	SetCurrentDirectoryA(root_path.c_str());
 	mods.push_back(std::move(mod));
 	return true;
 }

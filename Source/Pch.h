@@ -13,6 +13,8 @@
 #include <cstdio>
 #include <unordered_map>
 
+#include "StubFunctions.h"
 #include "ini.hpp"
 #include "Helpers.h"
 #include "ModLoader.h"
+#include "Utilities.h"

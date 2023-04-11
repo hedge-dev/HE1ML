@@ -12,6 +12,7 @@ enum EGameID
 enum EGameValueKey
 {
 	eGameValueKey_CriwareTable,
+	eGameValueKey_CRTStartup,
 };
 
 bool GetValue_Null(size_t key, void** value);

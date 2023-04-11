@@ -186,6 +186,7 @@
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="Globals.h" />
+    <ClInclude Include="StubFunctions.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Mod.h" />
@@ -209,6 +210,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="StubFunctions.cpp" />
     <ClCompile Include="VirtualFileSystem.cpp" />
     <ClCompile Include="Mod.cpp" />
     <ClCompile Include="ModLoader.cpp" />

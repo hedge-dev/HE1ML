@@ -24,6 +24,7 @@ namespace lw
 	struct Values
 	{
 		CriFunctionTable cri_table;
+		FUNCTION_PTR(void, WINAPI, __tmainCRTStartup, ASLR(0x00C7AFCD));
 
 		Values()
 		{
@@ -51,6 +52,11 @@ namespace lw
 		if (key == eGameValueKey_CriwareTable)
 		{
 			*value = &values.cri_table;
+			return true;
+		}
+		if (key == eGameValueKey_CRTStartup)
+		{
+			*value = values.__tmainCRTStartup;
 			return true;
 		}
 

@@ -18,6 +18,7 @@ namespace bb
 	struct Values
 	{
 		CriFunctionTable cri_table;
+		FUNCTION_PTR(void, WINAPI, __tmainCRTStartup, 0x00A6BD56);
 
 		Values()
 		{
@@ -55,6 +56,11 @@ namespace bb
 		if (key == eGameValueKey_CriwareTable)
 		{
 			*value = &values.cri_table;
+			return true;
+		}
+		if (key == eGameValueKey_CRTStartup)
+		{
+			*value = values.__tmainCRTStartup;
 			return true;
 		}
 		return false;

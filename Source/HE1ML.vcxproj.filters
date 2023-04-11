@@ -21,6 +21,7 @@
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
     <ClInclude Include="Globals.h" />
+    <ClInclude Include="StubFunctions.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -43,6 +44,7 @@
     <ClCompile Include="CRIWARE\ModLoaderDevice.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
     <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
+    <ClCompile Include="StubFunctions.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">
