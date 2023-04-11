@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "ModLoader.h"
 #include "Game.h"
+#include "Globals.h"
 
 ModLoader loader{};
 
@@ -17,9 +18,10 @@ HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 
 void Startup()
 {
+	g_game = &Game::GetExecutingGame();
 	ResolveStubMethods(LoadSystemLibrary("d3d9.dll"));
 
-	if (Game::GetExecutingGame().id == eGameID_Unknown)
+	if (g_game->id == eGameID_Unknown)
 	{
 		char buffer[4096];
 		GetModuleFileNameA(MODULE_HANDLE, buffer, sizeof(buffer));
@@ -38,7 +40,7 @@ void Startup()
 	}
 
 	void* crtStartup{};
-	Game::GetExecutingGame().GetValue(eGameValueKey_CRTStartup, &crtStartup);
+	g_game->GetValue(eGameValueKey_CRTStartup, &crtStartup);
 	if (crtStartup == nullptr)
 	{
 		MessageBoxA(NULL, "Failed to resolve CRT startup function.", "HE1ML", MB_OK);

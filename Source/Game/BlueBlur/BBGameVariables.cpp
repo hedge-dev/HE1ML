@@ -1,6 +1,14 @@
 #include "GameVariables.h"
 #include "CRIWARE/Criware.h"
+#include "CriwareGenerations.h"
 #include "Game.h"
+#include "Globals.h"
+
+HOOK(void, __fastcall, OnFrameStub, 0x006F5280, void* This)
+{
+	g_loader->OnUpdate();
+	originalOnFrameStub(This);
+}
 
 namespace bb
 {
@@ -51,6 +59,11 @@ namespace bb
 		}
 	} values;
 
+	void InstallUpdateEvent()
+	{
+		INSTALL_HOOK(OnFrameStub);
+	}
+
 	bool GetValue(size_t key, void** value)
 	{
 		if (key == eGameValueKey_CriwareTable)
@@ -63,6 +76,22 @@ namespace bb
 			*value = values.__tmainCRTStartup;
 			return true;
 		}
+		return false;
+	}
+
+	bool EventProc(size_t key, void* value)
+	{
+		if (key == eGameEvent_CriwareInit)
+		{
+			CriGensInit();
+			return true;
+		}
+		else if (key == eGameEvent_InstallUpdateEvent)
+		{
+			InstallUpdateEvent();
+			return true;
+		}
+
 		return false;
 	}
 }

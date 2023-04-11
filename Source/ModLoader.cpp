@@ -1,5 +1,7 @@
 // ReSharper disable CppExpressionWithoutSideEffects
 #include "ModLoader.h"
+
+#include "Game.h"
 #include "Globals.h"
 #include "CRIWARE/Criware.h"
 #include "Utilities.h"
@@ -20,6 +22,7 @@ namespace v0
 	};
 }
 
+void D3D9Hooks_Init();
 void ModLoader::Init(const char* configPath)
 {
 	g_loader = this;
@@ -75,6 +78,11 @@ void ModLoader::Init(const char* configPath)
 
 	LoadDatabase(dbPath);
 	InitCri(this);
+
+	if (!g_game->EventProc(eGameEvent_InstallUpdateEvent, nullptr))
+	{
+		D3D9Hooks_Init();
+	}
 }
 
 void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
@@ -97,7 +105,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	const auto modsSection = ini["Mods"];
 
 	const int activeModCount = std::stoi(mainSection["ActiveModCount"]);
-	for (int i = 0; i < activeModCount; i++)
+	for (int i = activeModCount - 1; i >= 0; i--)
 	{
 		sprintf_s(buf, sizeof(buf), "ActiveMod%d", i);
 		const auto modKey = strtrim(mainSection[buf], "\"");
@@ -128,6 +136,8 @@ bool ModLoader::RegisterMod(const std::string& path)
 		return false;
 	}
 
+	mod->GetEvents("OnFrame", update_handlers);
+
 	const auto root = mod->root.string();
 	SetDllDirectoryA(root.c_str());
 	SetCurrentDirectoryA(root.c_str());
@@ -143,5 +153,13 @@ void ModLoader::BroadcastMessageImm(void* message) const
 	for (const auto& mod : mods)
 	{
 		mod->SendMessageImm(message);
+	}
+}
+
+void ModLoader::OnUpdate()
+{
+	for (const auto& handler : update_handlers)
+	{
+		handler(&update_info);
 	}
 }

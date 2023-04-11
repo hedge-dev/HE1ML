@@ -22,15 +22,15 @@ const Game& Game::GetExecutingGame()
 	switch (nt_header->FileHeader.TimeDateStamp)
 	{
 		case timestamp_gens: 
-			executing_game = { eGameID_SonicGenerations, "Sonic Generations", bb::GetValue };
+			executing_game = { eGameID_SonicGenerations, "Sonic Generations", bb::GetValue, bb::EventProc };
 			break;
 
 		case timestamp_slw:
-			executing_game = { eGameID_SonicLostWorld, "Sonic Lost World", lw::GetValue };
+			executing_game = { eGameID_SonicLostWorld, "Sonic Lost World", lw::GetValue, lw::EventProc };
 			break;
 
 		default:
-			executing_game = { eGameID_Unknown, "Unknown" };
+			executing_game = { eGameID_Unknown, "Unknown", GetValue_Null, EventProc_Null };
 			break;
 	}
 
@@ -39,6 +39,11 @@ const Game& Game::GetExecutingGame()
 
 
 bool GetValue_Null(size_t key, void** value)
+{
+	return false;
+}
+
+bool EventProc_Null(size_t key, void* value)
 {
 	return false;
 }

@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <unordered_set>
 #include <Game.h>
-#include <Game/BlueBlur/CriwareGenerations.h>
 #include <Globals.h>
 
 CriFsBindId g_dir_bind{};
@@ -164,7 +163,7 @@ HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 
 void InitCri(ModLoader* loader)
 {
-	if (!Game::GetExecutingGame().GetValue(eGameValueKey_CriwareTable, reinterpret_cast<void**>(&g_cri)))
+	if (!g_game->GetValue(eGameValueKey_CriwareTable, reinterpret_cast<void**>(&g_cri)))
 	{
 		LOG("Skipping CRIWARE redirection, CRIWARE table not found")
 		return;
@@ -182,10 +181,7 @@ void InitCri(ModLoader* loader)
 		return;
 	}
 
-	if (Game::GetExecutingGame().id == eGameID_SonicGenerations)
-	{
-		CriGensInit();
-	}
+	g_game->EventProc(eGameEvent_CriwareInit, g_cri);
 
 	INSTALL_HOOK_ADDRESS(crifsbinder_BindCpkInternal, g_cri->criFsBinder_BindCpk);
 	INSTALL_HOOK_ADDRESS(criFsIoWin_Exists, g_cri->criFsIoWin_Exists);

@@ -62,4 +62,9 @@ namespace lw
 
 		return false;
 	}
+
+	bool EventProc(size_t key, void* value)
+	{
+		return false;
+	}
 }

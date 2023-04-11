@@ -15,13 +15,21 @@ enum EGameValueKey
 	eGameValueKey_CRTStartup,
 };
 
+enum EGameEventKey
+{
+	eGameEvent_CriwareInit,
+	eGameEvent_InstallUpdateEvent
+};
+
 bool GetValue_Null(size_t key, void** value);
+bool EventProc_Null(size_t key, void* value);
 
 struct Game
 {
 	EGameID id{ eGameID_Invalid };
 	const char* name{ "Invalid" };
 	bool (*GetValue)(size_t key, void** value) { GetValue_Null };
+	bool (*EventProc)(size_t key, void* value) { EventProc_Null };
 
 	static const Game& GetExecutingGame();
 };

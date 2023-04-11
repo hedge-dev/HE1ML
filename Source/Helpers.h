@@ -40,23 +40,23 @@ const HMODULE MODULE_HANDLE = GetModuleHandle(nullptr);
 
 #define INSTALL_HOOK(functionName) INSTALL_HOOK_ADDRESS(functionName, original##functionName)
 
-#define VTABLE_HOOK(returnType, callingConvention, className, functionName, ...) \
+#define VTABLE_HOOK(returnType, callingConvention, className, functionName, functionIndex, ...) \
     typedef returnType callingConvention className##functionName(className* This, __VA_ARGS__); \
     className##functionName* original##className##functionName; \
+    unsigned className##functionName##Index = functionIndex; \
     returnType callingConvention implOf##className##functionName(className* This, __VA_ARGS__)
 
-#define INSTALL_VTABLE_HOOK(className, object, functionName, functionIndex) \
-    { \
-        void** addr = &(*(void***)object)[functionIndex]; \
-        if (*addr != implOf##className##functionName) \
+#define INSTALL_VTABLE_HOOK(className, object, functionName) \
+    do { \
+        if (original##className##functionName == nullptr) \
         { \
-            original##className##functionName = (className##functionName*)*addr; \
-            DWORD oldProtect; \
-            VirtualProtect(addr, sizeof(void*), PAGE_EXECUTE_READWRITE, &oldProtect); \
-            *addr = implOf##className##functionName; \
-            VirtualProtect(addr, sizeof(void*), oldProtect, &oldProtect); \
+            original##className##functionName = (*(className##functionName***)object)[className##functionName##Index]; \
+            DetourTransactionBegin(); \
+            DetourUpdateThread(GetCurrentThread()); \
+            DetourAttach((void**)&original##className##functionName, implOf##className##functionName); \
+            DetourTransactionCommit(); \
         } \
-    }
+    } while(0)
 
 #define WRITE_MEMORY(location, type, ...) \
     { \

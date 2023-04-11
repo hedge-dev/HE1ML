@@ -4,6 +4,7 @@
 #include "Utilities.h"
 #include "CpkAdvancedConfig.h"
 #include "Game.h"
+#include "Globals.h"
 
 bool Mod::Init(const std::string& path)
 {
@@ -59,7 +60,7 @@ bool Mod::Init(const std::string& path)
 
 	for (const auto& includePath : include_paths)
 	{
-		switch (Game::GetExecutingGame().id)
+		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
 			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
