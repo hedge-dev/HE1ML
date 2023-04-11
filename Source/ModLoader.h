@@ -15,26 +15,27 @@ namespace v0
 		const char* Name;
 		const char* Path;
 		const char* ID;
+		void* pImpl;
 	};
 
 	// stdc++ compatability
 	// We can't use std::vector because it's not guaranteed to be ABI compatible
 	struct ModList_t
 	{
-		const Mod_t* start;
-		const Mod_t* fin;
-		const Mod_t* capacity;
+		const Mod_t** start;
+		const Mod_t** fin;
+		const Mod_t** capacity;
 
 #ifdef MODLOADER_IMPLEMENTATION
 		ModList_t() : start(nullptr), fin(nullptr), capacity(nullptr) {}
-		ModList_t(const Mod_t* start, const Mod_t* fin) : start(start), fin(fin), capacity(fin) {}
+		ModList_t(const Mod_t** start, const Mod_t** fin) : start(start), fin(fin), capacity(fin) {}
 #endif
 
 #ifdef __cplusplus
-		const Mod_t* begin() const { return start; }
-		const Mod_t* end() const { return fin; }
+		const Mod_t** begin() const { return start; }
+		const Mod_t** end() const { return fin; }
 
-		const Mod_t& operator[](size_t i) const { return start[i]; }
+		const Mod_t*& operator[](size_t i) const { return start[i]; }
 		size_t size() const { return fin - start; }
 #endif
 	};
@@ -71,7 +72,7 @@ public:
 	std::unique_ptr<FileBinder> binder{ new FileBinder() };
 	VirtualFileSystem* vfs{ &binder->vfs };
 	std::vector<std::unique_ptr<Mod>> mods{};
-	std::vector<v0::Mod_t> mod_handles{};
+	std::vector<std::unique_ptr<v0::Mod_t>> mod_handles{};
 
 	std::vector<ModEvent_t*> update_handlers{};
 	MLUpdateInfo update_info{};

@@ -109,12 +109,12 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		}
 	}
 
-	v0::ModList_t list{ mod_handles.data(), mod_handles.data() + mod_handles.size() };
+	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
 	v0::ModInfo_t info{ &list, nullptr, 1 };
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{
-		info.CurrentMod = &mod_handles[i];
+		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("PostInit", &info);
 	}
 }
@@ -128,9 +128,9 @@ bool ModLoader::RegisterMod(const std::string& path)
 		return false;
 	}
 
-	auto& m = mod_handles.emplace_back(mod->title.c_str(), mod->path.c_str(), mod->id.c_str());
-	v0::ModList_t list{ mod_handles.data(), mod_handles.data() + mod_handles.size() };
-	v0::ModInfo_t info{ &list, &m, 1 };
+	auto& m = mod_handles.emplace_back(new v0::Mod_t{ mod->title.c_str(), mod->path.c_str(), mod->id.c_str(), mod.get() });
+	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size()};
+	v0::ModInfo_t info{ &list, m.get(), 1 };
 
 	mod->GetEvents("OnFrame", update_handlers);
 
