@@ -9,6 +9,8 @@
 bool Mod::Init(const std::string& path)
 {
 	const std::filesystem::path modPath = path;
+
+	this->path = path;
 	root = modPath.parent_path().string();
 
 	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
@@ -26,7 +28,18 @@ bool Mod::Init(const std::string& path)
 		}
 	}
 
+	id = strtrim(mainSection["ID"], "\"");
 	title = strtrim(descSection["Title"], "\"");
+
+	if (id.empty())
+	{
+		const auto hash = strhash(title);
+		id.resize(8);
+		snprintf(id.data(), id.size(), "%X", hash);
+
+		id.resize(strlen(id.data()));
+	}
+
 	LOG("Loading mod %s", title.c_str());
 
 	const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);

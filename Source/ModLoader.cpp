@@ -6,21 +6,6 @@
 #include "Utilities.h"
 #include "Mod.h"
 
-namespace v0
-{
-	struct Mod
-	{
-		const char* Name;
-		const char* Path;
-	};
-
-	struct ModInfo
-	{
-		std::vector<Mod*>* ModList;
-		Mod* CurrentMod;
-	};
-}
-
 void D3D9Hooks_Init();
 void ModLoader::Init(const char* configPath)
 {
@@ -124,24 +109,28 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		}
 	}
 
-	for (const auto& mod : mods)
+	v0::ModList_t list{ mod_handles.data(), mod_handles.data() + mod_handles.size() };
+	v0::ModInfo_t info{ &list, nullptr, 1 };
+
+	for (size_t i = 0; i < mods.size(); i++)
 	{
-		mod->RaiseEvent("PostInit", nullptr);
+		info.CurrentMod = &mod_handles[i];
+		mods[i]->RaiseEvent("PostInit", &info);
 	}
 }
 
 bool ModLoader::RegisterMod(const std::string& path)
 {
-	v0::Mod m{};
-	v0::ModInfo info{ nullptr, &m };
 	auto mod = std::make_unique<Mod>(this);
-
-	m.Name = mod->title.c_str();
-	m.Path = path.c_str();
+	
 	if (!mod->Init(path))
 	{
 		return false;
 	}
+
+	auto& m = mod_handles.emplace_back(mod->title.c_str(), mod->path.c_str(), mod->id.c_str());
+	v0::ModList_t list{ mod_handles.data(), mod_handles.data() + mod_handles.size() };
+	v0::ModInfo_t info{ &list, &m, 1 };
 
 	mod->GetEvents("OnFrame", update_handlers);
 

@@ -8,7 +8,9 @@ typedef void MLAPI ModEvent_t(void* params);
 class Mod
 {
 public:
+	std::string id;
 	std::string title;
+	std::string path;
 	std::filesystem::path root;
 	std::vector<std::string> include_paths;
 	std::vector<HMODULE> modules;

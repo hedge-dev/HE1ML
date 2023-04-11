@@ -1,6 +1,7 @@
 #include "Pch.h"
 #include "Utilities.h"
 
+std::unordered_set<std::string> g_string_symbols{};
 void Buffer::free()
 {
 	if (flags & 1)
@@ -47,6 +48,11 @@ HMODULE LoadSystemLibrary(const char* name)
 	strcpy(windir.data() + windirSize, name);
 
 	return LoadLibraryA(windir.c_str());
+}
+
+const char* make_string_symbol(const char* str)
+{
+	return g_string_symbols.insert(str).first->c_str();
 }
 
 Buffer* make_buffer(size_t size)
