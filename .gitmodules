@@ -1,0 +1,3 @@
+[submodule "Source/Dependencies/CommonLoader"]
+	path = Source/Dependencies/CommonLoader
+	url = https://github.com/hedge-dev/CommonLoader

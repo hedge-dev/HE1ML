@@ -138,3 +138,57 @@ void strsplit(const char* str, const char* sep, std::vector<std::string>& out, b
 		begin = pos + strlen(sep);
 	}
 }
+
+const char* rstrstr(const char* str, const char* substr)
+{
+	if (!str || !substr)
+	{
+		return nullptr;
+	}
+
+	const auto* pos = str + strlen(str) - strlen(substr);
+	while (pos >= str)
+	{
+		if (!strncmp(pos, substr, strlen(substr)))
+		{
+			return pos;
+		}
+
+		--pos;
+	}
+
+	return nullptr;
+}
+
+char* rstrstr(char* str, const char* substr)
+{
+	return const_cast<char*>(rstrstr(static_cast<const char*>(str), substr));
+}
+
+const char* path_filename(const char* str)
+{
+	const auto* pos = rstrstr(str, "\\");
+	if (!pos)
+	{
+		pos = rstrstr(str, "/");
+	}
+
+	return pos ? pos + 1 : str;
+}
+
+bool path_rmfilename(char* str)
+{
+	char* pos = rstrstr(str, "\\");
+	if (!pos)
+	{
+		pos = rstrstr(str, "/");
+	}
+
+	if (!pos)
+	{
+		return false;
+	}
+
+	*pos = 0;
+	return true;
+}

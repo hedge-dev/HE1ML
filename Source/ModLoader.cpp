@@ -1,6 +1,5 @@
 // ReSharper disable CppExpressionWithoutSideEffects
 #include "ModLoader.h"
-
 #include "Game.h"
 #include "Globals.h"
 #include "CRIWARE/Criware.h"
@@ -78,6 +77,7 @@ void ModLoader::Init(const char* configPath)
 
 	LoadDatabase(dbPath);
 	InitCri(this);
+	CommonLoader::RaiseInitializers();
 
 	if (!g_game->EventProc(eGameEvent_InstallUpdateEvent, nullptr))
 	{
@@ -93,6 +93,13 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	database_path = databasePath;
+	auto codesPath = databasePath;
+
+	path_rmfilename(codesPath.data());
+	codesPath.resize(strlen(codesPath.data()));
+	codesPath.append("\\Codes.dll");
+	CommonLoader::LoadAssembly(codesPath.c_str());
+
 	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str(), true));
 	if (!file)
 	{
@@ -162,4 +169,6 @@ void ModLoader::OnUpdate()
 	{
 		handler(&update_info);
 	}
+
+	CommonLoader::RaiseUpdates();
 }

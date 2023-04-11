@@ -1,8 +1,9 @@
 #pragma once
+#include <stdbool.h>
 
 class Buffer
 {
-	uint32_t flags{};
+	uint8_t flags{};
 
 public:
 	size_t size{};
@@ -29,7 +30,11 @@ HMODULE LoadSystemLibrary(const char* name);
 Buffer* make_buffer(size_t size);
 Buffer* read_file(const char* path, bool text_file = false);
 std::string strtrim(const char* str, const char* s = nullptr);
-void strsplit(const char* str, const char* sep, std::vector<std::string>&out, bool trim_whitespace = true);
+void strsplit(const char* str, const char* sep, std::vector<std::string>& out, bool trim_whitespace = true);
+const char* rstrstr(const char* str, const char* substr);
+char* rstrstr(char* str, const char* substr);
+const char* path_filename(const char* str);
+bool path_rmfilename(char* str);
 
 constexpr char tolower_c(char c)
 {

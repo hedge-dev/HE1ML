@@ -18,3 +18,4 @@
 #include "Helpers.h"
 #include "ModLoader.h"
 #include "Utilities.h"
+#include <CommonLoader.h>

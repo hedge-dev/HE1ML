@@ -7,6 +7,7 @@ ModLoader loader{};
 
 void Init()
 {
+	CommonLoader::Init();
 	loader.Init("cpkredir.ini");
 }
 
