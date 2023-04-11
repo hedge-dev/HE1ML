@@ -42,8 +42,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 	PathRemoveExtensionA(path_buffer.data());
 
 	const size_t len = strlen(path_buffer.data());
-	path_buffer[len] = '\\';
-	path_buffer[len + 1] = '\0';
+	path_buffer[len] = '\0';
 	g_cpk_binds.emplace(path_buffer.data());
 	for (const auto& mod : g_loader->mods)
 	{
@@ -51,12 +50,9 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 		{
 			std::filesystem::path fsPath{ mod->root };
 			fsPath /= dir;
-			fsPath /= path_buffer.data();
 
-			if (GetFileAttributesW(fsPath.c_str()) != INVALID_FILE_ATTRIBUTES)
-			{
-				g_loader->binder->BindDirectory(".", fsPath.string().c_str());
-			}
+			g_loader->binder->BindDirectory(".", (fsPath / path_buffer.data()).string().c_str());
+			g_loader->binder->BindDirectory(".", (fsPath / path_filename(path_buffer.data())).string().c_str());
 		}
 	}
 
