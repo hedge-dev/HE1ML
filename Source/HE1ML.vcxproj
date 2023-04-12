@@ -103,6 +103,10 @@
     <ClInclude Include="CRIWARE\ModLoaderDevice.h" />
     <ClInclude Include="CRIWARE\Win32Device.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
+    <ClInclude Include="Game\BlueBlur\API\hhAllocator.h" />
+    <ClInclude Include="Game\BlueBlur\API\hhCowData.h" />
+    <ClInclude Include="Game\BlueBlur\API\hhList.h" />
+    <ClInclude Include="Game\BlueBlur\API\hhSharedString.h" />
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />
@@ -128,6 +132,7 @@
     <ClCompile Include="CRIWARE\Win32Device.cpp" />
     <ClCompile Include="D3D9Hooks.cpp" />
     <ClCompile Include="Game\BlueBlur\BBSaveHandler.cpp" />
+    <ClCompile Include="Game\BlueBlur\BBWorkHandler.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
     <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
     <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />

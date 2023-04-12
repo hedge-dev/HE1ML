@@ -7,18 +7,19 @@ size_t FileBinder::Binding::AddDirectory(const std::string& path)
 {
 	if (std::holds_alternative<std::monostate>(value))
 	{
-		this->value = std::vector<std::filesystem::path>{ path };
+		this->value = std::list<std::filesystem::path>{ path };
 	}
 	else if (std::holds_alternative<std::filesystem::path>(value))
 	{
-		this->value = std::vector<std::filesystem::path>{ std::get<std::filesystem::path>(value), path };
+		this->value = std::list<std::filesystem::path>{ std::get<std::filesystem::path>(value), path };
 	}
-	else if (std::holds_alternative<std::vector<std::filesystem::path>>(value))
+	else if (std::holds_alternative<std::list<std::filesystem::path>>(value))
 	{
-		std::get<std::vector<std::filesystem::path>>(value).emplace_back(path);
+		auto& dirs = std::get<std::list<std::filesystem::path>>(value);
+		dirs.emplace(dirs.begin(), path);
 	}
 
-	return std::get<std::vector<std::filesystem::path>>(value).size() - 1;
+	return std::get<std::list<std::filesystem::path>>(value).size() - 1;
 }
 
 void FileBinder::Binding::SetFile(const std::string& path)
@@ -37,9 +38,9 @@ bool FileBinder::Binding::Query(const char* file, std::string& out_path) const
 		out_path = std::get<std::filesystem::path>(value).string();
 		return true;
 	}
-	else if (std::holds_alternative<std::vector<std::filesystem::path>>(value))
+	else if (std::holds_alternative<std::list<std::filesystem::path>>(value))
 	{
-		for (const auto& dir : std::get<std::vector<std::filesystem::path>>(value))
+		for (const auto& dir : std::get<std::list<std::filesystem::path>>(value))
 		{
 			const auto path = dir / file;
 			auto pathString = path.string();
@@ -73,6 +74,46 @@ EBindError FileBinder::Unbind(size_t id)
 
 	bindings[id].reset();
 	lookup_cache.clear();
+
+	return eBindError_None;
+}
+
+EBindError FileBinder::EnumerateFiles(const char* path, const std::function<bool(const std::filesystem::path&)>& callback) const
+{
+	if (callback == nullptr)
+	{
+		return eBindError_BadArguments;
+	}
+
+	const auto* entry = vfs.get_entry(path);
+	if (entry == nullptr || !entry->has_data<size_t>())
+	{
+		return eBindError_NotFound;
+	}
+
+	const auto& binding = bindings[entry->get_data<size_t>()].value();
+	if (!std::holds_alternative<std::list<std::filesystem::path>>(binding.value))
+	{
+		return eBindError_NotFound;
+	}
+
+	const auto& folders = std::get<std::list<std::filesystem::path>>(binding.value);
+
+	for (const auto& folder : folders)
+	{
+		for (const auto& file : std::filesystem::directory_iterator(folder))
+		{
+			if (file.is_directory())
+			{
+				continue;
+			}
+
+			if (!callback(file.path()))
+			{
+				break;
+			}
+		}
+	}
 
 	return eBindError_None;
 }
@@ -152,7 +193,7 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 	{
 		bindId = entry->get_data<size_t>();
 	}
-	
+
 	if (bindId != 0)
 	{
 		bindings[bindId]->AddDirectory(destination);
@@ -161,6 +202,29 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination)
 	{
 		bindId = entry->userdata.emplace<size_t>(AllocateBinding());
 		bindings[bindId]->AddDirectory(destination);
+	}
+
+	return eBindError_None;
+}
+
+EBindError FileBinder::BindDirectoryRecursive(const char* path, const char* destination)
+{
+	const auto result = BindDirectory(path, destination);
+	if (result != eBindError_None)
+	{
+		return result;
+	}
+
+	for (const auto& file : std::filesystem::recursive_directory_iterator(destination))
+	{
+		if (!file.is_directory())
+		{
+			continue;
+		}
+
+		const auto relativePath = file.path().string().substr(strlen(destination) + 1);
+		const auto fullPath = std::string(path) + '\\' + relativePath;
+		BindDirectory(fullPath.c_str(), file.path().string().c_str());
 	}
 
 	return eBindError_None;

@@ -80,6 +80,7 @@ namespace bb
 	}
 
 	void InitSaveRedir();
+	void InitWork();
 	bool EventProc(size_t key, void* value)
 	{
 		switch (key)
@@ -92,9 +93,13 @@ namespace bb
 				InstallUpdateEvent();
 				return true;
 
+			case eGameEvent_PreInit:
+				g_binder->BindDirectoryRecursive("work\\", (g_loader->root_path + "\\work\\").c_str());
+				return true;
+
 			case eGameEvent_Init:
 				InitSaveRedir();
-				g_binder->BindDirectory("work\\", (g_loader->root_path + "\\work\\").c_str());
+				InitWork();
 				return true;
 		}
 

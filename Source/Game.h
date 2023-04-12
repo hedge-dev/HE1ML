@@ -19,6 +19,7 @@ enum EGameEventKey
 {
 	eGameEvent_CriwareInit,
 	eGameEvent_InstallUpdateEvent,
+	eGameEvent_PreInit,
 	eGameEvent_Init,
 	eGameEvent_SetSaveFile,
 };

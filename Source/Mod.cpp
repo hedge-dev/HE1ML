@@ -78,6 +78,7 @@ bool Mod::Init(const std::string& path)
 		{
 		case eGameID_SonicGenerations:
 			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
+			loader->binder->BindDirectoryRecursive("work/", (root / includePath / "work").string().c_str());
 
 		case eGameID_SonicLostWorld:
 			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str());

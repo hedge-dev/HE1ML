@@ -65,8 +65,11 @@ void ModLoader::Init(const char* configPath)
 		dbPath = "Mods\\ModsDb.ini";
 	}
 
+	g_game->EventProc(eGameEvent_PreInit, nullptr);
+
 	LoadDatabase(dbPath);
 	InitCri(this);
+
 	g_game->EventProc(eGameEvent_Init, nullptr);
 	CommonLoader::RaiseInitializers();
 

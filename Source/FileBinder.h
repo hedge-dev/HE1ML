@@ -21,7 +21,7 @@ class FileBinder
 public:
 	struct Binding
 	{
-		std::variant<std::monostate, std::filesystem::path, std::vector<std::filesystem::path>> value;
+		std::variant<std::monostate, std::filesystem::path, std::list<std::filesystem::path>> value;
 		size_t AddDirectory(const std::string& path);
 		void SetFile(const std::string& path);
 
@@ -33,8 +33,10 @@ public:
 
 	FileBinder();
 	EBindError Unbind(size_t id);
+	EBindError EnumerateFiles(const char* path, const std::function<bool(const std::filesystem::path&)>& callback) const;
 	EBindError BindFile(const char* path, const char* destination, size_t* out_id = nullptr);
 	EBindError BindDirectory(const char* path, const char* destination);
+	EBindError BindDirectoryRecursive(const char* path, const char* destination);
 	EBindError FileExists(const char* path) const;
 	EBindError ResolvePath(const char* path, std::string* out) const;
 	Binding& GetFreeBinding();
