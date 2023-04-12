@@ -222,7 +222,7 @@ EBindError FileBinder::BindDirectoryRecursive(const char* path, const char* dest
 			continue;
 		}
 
-		const auto relativePath = file.path().string().substr(strlen(destination));
+		const auto relativePath = std::filesystem::relative(file, destination).string();
 		const auto fullPath = std::string(path) + '\\' + relativePath;
 		BindDirectory(fullPath.c_str(), file.path().string().c_str());
 	}
