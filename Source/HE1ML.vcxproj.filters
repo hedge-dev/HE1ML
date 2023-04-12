@@ -26,7 +26,6 @@
     <ClInclude Include="Game\BlueBlur\API\hhAllocator.h" />
     <ClInclude Include="Game\BlueBlur\API\hhList.h" />
     <ClInclude Include="Game\BlueBlur\API\hhSharedString.h" />
-    <ClInclude Include="Game\BlueBlur\API\hhCowData.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
