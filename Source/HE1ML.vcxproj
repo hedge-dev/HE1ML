@@ -185,6 +185,7 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
+    <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="StubFunctions.h" />
     <ClInclude Include="VirtualFileSystem.h" />
@@ -208,7 +209,9 @@
     <ClCompile Include="Dependencies\ini.cpp" />
     <ClCompile Include="Dependencies\xxhash.cpp" />
     <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
+    <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />

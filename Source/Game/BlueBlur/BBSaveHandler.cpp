@@ -7,7 +7,7 @@ HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsExist, 0x00E7A3D0, void* ecx)
 		return originalCSaveLoadTestPC_SaveContentsExist(ecx);
 	}
 
-	if (GetFileAttributesA(g_loader->save_file.c_str()) != INVALID_FILE_ATTRIBUTES)
+	if (file_exists(g_loader->save_file.c_str()))
 	{
 		return true;
 	}

@@ -30,6 +30,7 @@ HMODULE LoadSystemLibrary(const char* name);
 const char* make_string_symbol(const char* str);
 Buffer* make_buffer(size_t size);
 Buffer* read_file(const char* path, bool text_file = false);
+bool file_exists(const char* path);
 std::string strtrim(const char* str, const char* s = nullptr);
 void strsplit(const char* str, const char* sep, std::vector<std::string>& out, bool trim_whitespace = true);
 const char* rstrstr(const char* str, const char* substr);

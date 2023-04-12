@@ -81,6 +81,12 @@ Buffer* read_file(const char* path, bool text_file)
 	return buffer;
 }
 
+bool file_exists(const char* path)
+{
+	const auto attributes = GetFileAttributesA(path);
+	return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
 std::string strtrim(const char* str, const char* s)
 {
 	if (!str)

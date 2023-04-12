@@ -22,6 +22,7 @@
     <ClInclude Include="Game\BlueBlur\GameVariables.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="StubFunctions.h" />
+    <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -47,6 +48,8 @@
     <ClCompile Include="StubFunctions.cpp" />
     <ClCompile Include="D3D9Hooks.cpp" />
     <ClCompile Include="Game\BlueBlur\BBSaveHandler.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
+    <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">
