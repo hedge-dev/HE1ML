@@ -1,3 +1,3 @@
-[submodule "Source/Dependencies/CommonLoader"]
-	path = Source/Dependencies/CommonLoader
+[submodule "Dependencies/CommonLoader"]
+	path = Dependencies/CommonLoader
 	url = https://github.com/hedge-dev/CommonLoader

@@ -36,8 +36,6 @@
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="CRIWARE\CriwareFileLoader.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
-    <ClCompile Include="Dependencies\ini.cpp" />
-    <ClCompile Include="Dependencies\xxhash.cpp" />
     <ClCompile Include="CRIWARE\CpkDevice.cpp" />
     <ClCompile Include="CRIWARE\CpkRequestDevice.cpp" />
     <ClCompile Include="CpkAdvancedConfig.cpp" />
