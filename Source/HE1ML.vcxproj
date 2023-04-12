@@ -114,6 +114,7 @@
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
     <ClInclude Include="Globals.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="StubFunctions.h" />
     <ClInclude Include="VirtualFileSystem.h" />
     <ClInclude Include="Helpers.h" />
@@ -158,6 +159,9 @@
     <ProjectReference Include="HE1ML-Externals.vcxproj">
       <Project>{eda583ba-61df-45d7-b784-66fcaf1000a2}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

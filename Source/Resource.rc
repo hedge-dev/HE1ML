@@ -1,0 +1,31 @@
+#include "resource.h"
+
+1 VERSIONINFO
+FILEVERSION             VERSION_FULL
+PRODUCTVERSION          VERSION_FULL
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "NeverFinishAnything"
+            VALUE "FileDescription", "Mod loader for Hedgehog Engine 1 games on PC (SLW, Sonic Generations)"
+            VALUE "FileVersion", VERSION_STRING
+            VALUE "InternalName", "HE1ML.dll"
+            VALUE "LegalCopyright", "Copyright (C) 2023"
+            VALUE "OriginalFilename", "HE1ML.dll"
+            VALUE "ProductName", PRODUCT_NAME
+            VALUE "ProductVersion", VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409,1200
+    END
+END
+
+STRINGTABLE
+BEGIN
+    MIN_CODE_VERSION_KEY        MIN_CODE_VERSION
+    MAX_CODE_VERSION_KEY        MAX_CODE_VERSION
+END
