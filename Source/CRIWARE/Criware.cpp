@@ -65,7 +65,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 		g_cri->criFsBinder_SetPriority(g_dir_bind, 90000000);
 	}
 
-	printf("crifsbinder_BindCpkInternal: %s\n", path);
+	LOG("crifsbinder_BindCpkInternal: %s\n", path);
 	const CriError err = originalcrifsbinder_BindCpkInternal(bndrhn, srcbndrhn, path, work, worksize, bndrid);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, CriFsBindCpkHook_t, bndrhn, srcbndrhn, path, work, worksize, bndrid);
 	return err;
@@ -106,7 +106,6 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 
 HOOK(CriFsIoError, CRIAPI, criFsIoWin_Exists, 0x007D66DB, const CriChar8* path, CriBool* exists)
 {
-	LOG("criFsIoWin_Exists: %s", path);
 	if (!path || !exists)
 	{
 		return CRIFS_IO_ERROR_NG;
@@ -138,8 +137,6 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 	CriFsBinderHn binder, const CriChar8* path, CriSint64 offset,
 	CriSint64 load_size, void* buffer, CriSint64 buffer_size)
 {
-	LOG("criFsLoader_Load: %s", path);
-
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
 	const CriError result = originalcriFsLoader_Load(loader, binder, path, offset, load_size, buffer, buffer_size);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_LOAD, CriFsLoadHook_t, loader, binder, path, offset, load_size, buffer, buffer_size);
@@ -148,8 +145,6 @@ HOOK(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 
 HOOK(CriError, CRIAPI, criFsBinder_Unbind, nullptr, CriFsBindId bndrid)
 {
-	LOG("criFsBinder_Unbind: %d", bndrid);
-
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, CriFsUnbindHook_t, bndrid);
 	const CriError result = originalcriFsBinder_Unbind(bndrid);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_UNBIND, CriFsUnbindHook_t, bndrid);

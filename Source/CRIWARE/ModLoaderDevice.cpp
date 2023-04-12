@@ -110,11 +110,6 @@ CriFsIoError CRIAPI CriFsIoML_Open(const CriChar8* path, CriFsFileMode mode, Cri
 		path += 4;
 	}
 
-	if (strstr(path, "ghz200") != nullptr)
-	{
-		LOG("CriFsIoML_Open: %s", path);
-	}
-
 	const std::string newPath = CriFsIoML_GetReplacePath(path);
 	if (!newPath.empty())
 	{

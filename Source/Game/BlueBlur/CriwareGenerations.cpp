@@ -14,13 +14,6 @@ namespace
 
 HOOK(CriError, __cdecl, criFsIo_SelectIo, nullptr, const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
 {
-	LOG("SelectIoGens: %s", path);
-
-	if (strstr(path, "HML\\"))
-	{
-		path += 4;
-	}
-
 	size_t id = CriFsIoML_ResolveDevice(path);
 	if (id == -1)
 	{
