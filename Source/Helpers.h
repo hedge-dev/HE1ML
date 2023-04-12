@@ -89,7 +89,7 @@ const HMODULE MODULE_HANDLE = GetModuleHandle(nullptr);
     }
 
 template<int N>
-struct insert_padding
+struct padding_t
 {
     INSERT_PADDING(N);
 };

@@ -9,7 +9,7 @@ namespace Hedgehog
     class list :
 
 #if _ITERATOR_DEBUG_LEVEL == 0
-        insert_padding<4>,
+        padding_t<4>,
 #endif
         public std::list<T, TAllocator>
 
