@@ -46,6 +46,7 @@ void ModLoader::Init(const char* configPath)
 		AllocConsole();
 	}
 
+	SetCurrentDirectoryA(root_path.c_str());
 	freopen("CONOUT$", "w", stdout);
 	config_path = configPath;
 
