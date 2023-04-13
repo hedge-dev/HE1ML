@@ -70,7 +70,7 @@ bool Mod::Init(const std::string& path)
 	}
 
 	SetDllDirectoryA(nullptr);
-	GetEvents("ProcessMessage", msg_processors);
+	GetEvents("ProcessMessage", *reinterpret_cast<std::vector<ModEvent_t*>*>(&msg_processors));
 
 	for (const auto& includePath : include_paths)
 	{
@@ -128,10 +128,10 @@ int Mod::GetEvents(const char* name, std::vector<ModEvent_t*>& out) const
 	return count;
 }
 
-void Mod::SendMessageImm(void* message) const
+void Mod::SendMessageImm(size_t id, void* data) const
 {
 	for (auto& processor : msg_processors)
 	{
-		processor(message);
+		processor(id, data);
 	}
 }

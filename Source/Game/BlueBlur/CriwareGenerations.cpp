@@ -93,6 +93,11 @@ HOOK(void, __cdecl, mfCiGetFullPath, 0x00798150, const char* path, char* out)
 	}
 }
 
+HOOK(void*, __fastcall, CriAudio_Init, 0x007A5730, void* ecx, void* edx, void* a1, void* a2, void* a3, size_t cuesheet_max)
+{
+	cuesheet_max = 0x1000;
+	return originalCriAudio_Init(ecx, edx, a1, a2, a3, cuesheet_max);
+}
 
 void CriGensInit()
 {
@@ -111,6 +116,7 @@ void CriGensInit()
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
 	INSTALL_HOOK_ADDRESS(criFsIo_SelectIo, g_cri->criFsIo_SelectIo);
 	INSTALL_HOOK(mfCiGetFullPath);
+	INSTALL_HOOK(CriAudio_Init);
 
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindCpk);

@@ -1,10 +1,14 @@
 #pragma once
 
-#define MLAPI __cdecl
+#define ML_API __cdecl
 struct MLUpdateInfo
 {
 	void* device;
 };
+
+#define ML_API_VERSION 1
+struct ModLoaderAPI_t;
+struct CommonLoaderAPI;
 
 #ifdef MODLOADER_IMPLEMENTATION
 namespace v0
@@ -44,13 +48,33 @@ namespace v0
 	{
 		ModList_t* ModList;
 		Mod_t* CurrentMod;
-		int Version;
+		const ModLoaderAPI_t* API;
 		void* Reserved[2];
 	};
 
 #ifdef MODLOADER_IMPLEMENTATION
 }
 #endif
+
+#define DECLARE_API_FUNC(RETURN_TYPE, NAME, ...) RETURN_TYPE (ML_API *NAME)(__VA_ARGS__) = nullptr;
+
+#ifdef MODLOADER_IMPLEMENTATION
+typedef v0::Mod_t Mod_t;
+#endif
+
+struct ModLoaderAPI_t
+{
+	DECLARE_API_FUNC(unsigned int, GetVersion);
+	DECLARE_API_FUNC(const CommonLoaderAPI*, GetCommonLoader);
+	DECLARE_API_FUNC(const Mod_t*, FindMod, const char* id);
+	DECLARE_API_FUNC(void, SendMessageImm, const Mod_t* mod, size_t id, void* data);
+	DECLARE_API_FUNC(void, SendMessageToLoader, size_t id, void* data);
+	DECLARE_API_FUNC(int, BindFile, const char* path, const char* destination);
+	DECLARE_API_FUNC(int, BindDirectory, const char* path, const char* destination);
+	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
+};
+
+#undef DECLARE_API_FUNC
 
 #ifdef MODLOADER_IMPLEMENTATION
 #define LOG(MSG, ...) { printf("[HE1ML] " MSG "\n", __VA_ARGS__); }
@@ -61,6 +85,8 @@ namespace v0
 #include "Mod.h"
 #include "FileBinder.h"
 #include "VirtualFileSystem.h"
+
+extern ModLoaderAPI_t g_ml_api;
 
 class Mod;
 class ModLoader
@@ -84,13 +110,13 @@ public:
 	void Init(const char* configPath);
 	void LoadDatabase(const std::string& databasePath, bool append = false);
 	bool RegisterMod(const std::string& path);
-	void BroadcastMessageImm(void* message) const;
+	void BroadcastMessageImm(size_t id, void* data) const;
 	void OnUpdate();
+	void ProcessMessage(size_t id, void* data);
 
 	void SetUseSaveRedirection(bool value)
 	{
 		save_redirection = value;
-		SetSaveFile(save_file.c_str());
 	}
 
 	void SetSaveFile(const char* path);

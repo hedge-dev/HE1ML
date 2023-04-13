@@ -21,7 +21,7 @@ enum EGameEventKey
 	eGameEvent_InstallUpdateEvent,
 	eGameEvent_PreInit,
 	eGameEvent_Init,
-	eGameEvent_SetSaveFile,
+	eGameEvent_ProcessMessage,
 };
 
 bool GetValue_Null(size_t key, void** value);
@@ -29,6 +29,12 @@ bool EventProc_Null(size_t key, void* value);
 
 struct Game
 {
+	struct Message
+	{
+		size_t id{};
+		void* data{};
+	};
+
 	EGameID id{ eGameID_Invalid };
 	const char* name{ "Invalid" };
 	bool (*GetValue)(size_t key, void** value) { GetValue_Null };

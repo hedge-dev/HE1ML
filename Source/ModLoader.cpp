@@ -119,7 +119,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
-	v0::ModInfo_t info{ &list, nullptr, 1 };
+	v0::ModInfo_t info{ &list, nullptr, &g_ml_api };
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{
@@ -131,7 +131,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 bool ModLoader::RegisterMod(const std::string& path)
 {
 	auto mod = std::make_unique<Mod>(this);
-	
+
 	if (!mod->Init(path))
 	{
 		return false;
@@ -143,8 +143,8 @@ bool ModLoader::RegisterMod(const std::string& path)
 	}
 
 	auto& m = mod_handles.emplace_back(new v0::Mod_t{ mod->title.c_str(), mod->path.c_str(), mod->id.c_str(), mod.get() });
-	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size()};
-	v0::ModInfo_t info{ &list, m.get(), 1 };
+	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
+	v0::ModInfo_t info{ &list, m.get(), &g_ml_api };
 
 	mod->GetEvents("OnFrame", update_handlers);
 
@@ -158,11 +158,11 @@ bool ModLoader::RegisterMod(const std::string& path)
 	return true;
 }
 
-void ModLoader::BroadcastMessageImm(void* message) const
+void ModLoader::BroadcastMessageImm(size_t id, void* data) const
 {
 	for (const auto& mod : mods)
 	{
-		mod->SendMessageImm(message);
+		mod->SendMessageImm(id, data);
 	}
 }
 
@@ -176,12 +176,83 @@ void ModLoader::OnUpdate()
 	CommonLoader::RaiseUpdates();
 }
 
+void ModLoader::ProcessMessage(size_t id, void* data)
+{
+	Game::Message msg{ id, data };
+	g_game->EventProc(eGameEvent_ProcessMessage, &msg);
+}
+
 void ModLoader::SetSaveFile(const char* path)
 {
-	save_file = path;
-
-	if (save_redirection)
+	if (path == nullptr)
 	{
-		g_game->EventProc(eGameEvent_SetSaveFile, const_cast<char*>(path));
+		save_redirection = false;
+		save_file = "";
+		return;
+	}
+
+	save_file = path;
+}
+
+unsigned int ML_API ModLoader_GetVersion()
+{
+	return ML_API_VERSION;
+}
+
+const v0::Mod_t* ML_API ModLoader_FindMod(const char* id)
+{
+	for (const auto& mod : g_loader->mod_handles)
+	{
+		if (_stricmp(mod->ID, id) != 0)
+		{
+			return mod.get();
+		}
+	}
+	return nullptr;
+}
+
+void ML_API ModLoader_SendMessageImm(const v0::Mod_t* mod, size_t id, void* data)
+{
+	if (mod)
+	{
+		static_cast<Mod*>(mod->pImpl)->SendMessageImm(id, data);
+	}
+	else
+	{
+		g_loader->BroadcastMessageImm(id, data);
 	}
 }
+
+void ML_API ModLoader_SendMessageToLoader(size_t id, void* data)
+{
+	g_loader->ProcessMessage(id, data);
+}
+
+int ML_API ModLoader_BindFile(const char* path, const char* destination)
+{
+	return g_binder->BindFile(path, destination);
+}
+
+int ML_API ModLoader_BindDirectory(const char* path, const char* destination)
+{
+	return g_binder->BindDirectory(path, destination);
+}
+
+void ML_API ModLoader_SetSaveFile(const char* path)
+{
+	g_loader->SetSaveFile(path);
+}
+
+CMN_LOADER_DEFINE_API_EXPORT
+
+ModLoaderAPI_t g_ml_api
+{
+	ModLoader_GetVersion,
+	CommonLoader_GetAPIPointer,
+	ModLoader_FindMod,
+	ModLoader_SendMessageImm,
+	ModLoader_SendMessageToLoader,
+	ModLoader_BindFile,
+	ModLoader_BindDirectory,
+	ModLoader_SetSaveFile
+};
