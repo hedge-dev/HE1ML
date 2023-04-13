@@ -240,11 +240,9 @@ void ModLoader::FilterMods()
 {
 	std::vector<size_t> votes{};
 	std::vector<std::vector<size_t>> sub_votes{};
-	std::vector<size_t> executions{};
 
 	votes.resize(mods.size());
 	sub_votes.resize(mods.size());
-	executions.reserve(mods.size());
 
 	for (auto& vote : sub_votes)
 	{
@@ -289,14 +287,9 @@ void ModLoader::FilterMods()
 	{
 		if (votes[i] != 0)
 		{
-			executions.push_back(i);
+			mods.erase(i + mods.begin());
+			mod_handles.erase(i + mod_handles.begin());
 		}
-	}
-
-	for (intptr_t i = static_cast<intptr_t>(executions.size()) - 1; i >= 0; i--)
-	{
-		mods.erase(executions[i] + mods.begin());
-		mod_handles.erase(executions[i] + mod_handles.begin());
 	}
 }
 
