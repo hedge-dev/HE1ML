@@ -36,5 +36,5 @@ LONG WINAPI HandleException(PEXCEPTION_POINTERS pExceptionInfo)
 
 void InitExceptionHandler()
 {
-	auto result = SetUnhandledExceptionFilter(HandleException);
+	SetUnhandledExceptionFilter(HandleException);
 }
