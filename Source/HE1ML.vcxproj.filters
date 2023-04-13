@@ -27,6 +27,7 @@
     <ClInclude Include="Game\BlueBlur\API\hhList.h" />
     <ClInclude Include="Game\BlueBlur\API\hhSharedString.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ExceptionHandler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -53,6 +54,7 @@
     <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
     <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
     <ClCompile Include="Game\BlueBlur\BBWorkHandler.cpp" />
+    <ClCompile Include="ExceptionHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

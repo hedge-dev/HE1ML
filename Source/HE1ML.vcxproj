@@ -66,7 +66,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
@@ -90,7 +90,7 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -103,6 +103,7 @@
     <ClInclude Include="CRIWARE\ModLoaderDevice.h" />
     <ClInclude Include="CRIWARE\Win32Device.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
+    <ClInclude Include="ExceptionHandler.h" />
     <ClInclude Include="Game\BlueBlur\API\hhAllocator.h" />
     <ClInclude Include="Game\BlueBlur\API\hhList.h" />
     <ClInclude Include="Game\BlueBlur\API\hhSharedString.h" />
@@ -131,6 +132,7 @@
     <ClCompile Include="CRIWARE\ModLoaderDevice.cpp" />
     <ClCompile Include="CRIWARE\Win32Device.cpp" />
     <ClCompile Include="D3D9Hooks.cpp" />
+    <ClCompile Include="ExceptionHandler.cpp" />
     <ClCompile Include="Game\BlueBlur\BBSaveHandler.cpp" />
     <ClCompile Include="Game\BlueBlur\BBWorkHandler.cpp" />
     <ClCompile Include="Game\BlueBlur\CriwareGenerations.cpp" />
