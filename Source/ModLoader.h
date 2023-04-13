@@ -96,6 +96,7 @@ struct ModLoaderAPI_t
 struct FilterModArguments_t
 {
 	const Mod_t* mod;
+	const Mod_t* self;
 	bool handled{};
 };
 

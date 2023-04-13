@@ -256,7 +256,7 @@ void ModLoader::FilterMods()
 			if (i == j)
 				continue;
 
-			FilterModArguments_t args{ mod_handles[j].get(), false };
+			FilterModArguments_t args{ mod_handles[j].get(), mod_handles[i].get(), false };
 			mods[i]->RaiseEvent("FilterMod", &args);
 
 			if (args.handled)
