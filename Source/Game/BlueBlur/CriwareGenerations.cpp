@@ -93,10 +93,28 @@ HOOK(void, __cdecl, mfCiGetFullPath, 0x00798150, const char* path, char* out)
 	}
 }
 
-HOOK(void*, __fastcall, CriAudio_Init, 0x007A5730, void* ecx, void* edx, void* a1, void* a2, void* a3, size_t cuesheet_max)
+FUNCTION_PTR(void*, __cdecl, CriAuMemAlloc_Alloc, 0x007C9B39, void* allocator, size_t size, const char* name, size_t alignment);
+FUNCTION_PTR(void*, __cdecl, CriAuMemAlloc_Free, 0x007C9BE8, void* allocator, void* mem);
+
+HOOK(void*, __fastcall, CriAuObjLoc_AttachCueSheet, 0x007A5A80, size_t* ecx, void* edx, void* a1, void* a2)
 {
-	cuesheet_max = 0x1000;
-	return originalCriAudio_Init(ecx, edx, a1, a2, a3, cuesheet_max);
+	void* allocator = reinterpret_cast<void*>(ecx[1]);
+	size_t& capacity = ecx[10];
+	const size_t& count = ecx[11];
+	void** data = reinterpret_cast<void**>(&ecx[12]);
+
+	if (count >= capacity)
+	{
+		const size_t new_capacity = capacity * 2;
+		void* new_data = CriAuMemAlloc_Alloc(allocator, new_capacity * 4, "AuObjCueSheet", 4);
+
+		memcpy(new_data, *data, count * 4);
+		CriAuMemAlloc_Free(allocator, *data);
+		*data = new_data;
+		capacity = new_capacity;
+	}
+
+	return originalCriAuObjLoc_AttachCueSheet(ecx, edx, a1, a2);
 }
 
 void CriGensInit()
@@ -116,7 +134,7 @@ void CriGensInit()
 	WRITE_CALL(0x00669F13, criFs_CalculateWorkSizeForLibraryOverride);
 	INSTALL_HOOK_ADDRESS(criFsIo_SelectIo, g_cri->criFsIo_SelectIo);
 	INSTALL_HOOK(mfCiGetFullPath);
-	INSTALL_HOOK(CriAudio_Init);
+	INSTALL_HOOK(CriAuObjLoc_AttachCueSheet);
 
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, BindCpk);
 	ML_SET_CRIWARE_HOOK(ML_CRIWARE_HOOK_PRE_UNBIND, UnbindCpk);
