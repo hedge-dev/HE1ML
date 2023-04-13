@@ -6,7 +6,7 @@
 #include "Game.h"
 #include "Globals.h"
 
-bool Mod::Init(const std::string& path)
+bool Mod::Load(const std::string& path)
 {
 	const std::filesystem::path modPath = path;
 
@@ -24,7 +24,7 @@ bool Mod::Init(const std::string& path)
 	{
 		for (const auto property : cpksSection)
 		{
-			InitAdvancedCpk(strtrim(property.value(), "\"").c_str());
+			LoadAdvancedCpk(strtrim(property.value(), "\"").c_str());
 		}
 	}
 
@@ -56,10 +56,11 @@ bool Mod::Init(const std::string& path)
 	const auto dllPaths = strsplit(dllFilesRaw.c_str(), ",");
 
 	SetDllDirectoryA(root.string().c_str());
+
 	for (const auto& dllPath : dllPaths)
 	{
 		LOG("\t\tLoading DLL %s", dllPath.c_str());
-		HMODULE mod = LoadLibraryA(dllPath.c_str());
+		HMODULE mod = LoadLibraryA((root / dllPath).string().c_str());
 		if (!mod)
 		{
 			LOG("\t\t\tFailed to load DLL %s", dllPath.c_str());
@@ -70,8 +71,24 @@ bool Mod::Init(const std::string& path)
 	}
 
 	SetDllDirectoryA(nullptr);
+
 	GetEvents("ProcessMessage", *reinterpret_cast<std::vector<ModEvent_t*>*>(&msg_processors));
 
+	return true;
+}
+
+void Mod::LoadAdvancedCpk(const char* path)
+{
+	const auto file = std::unique_ptr<Buffer>(read_file((root / path).string().c_str(), true));
+	if (file == nullptr)
+	{
+		return;
+	}
+	cpk_configs.emplace_back().Parse(reinterpret_cast<char*>(file->memory));
+}
+
+void Mod::Init()
+{
 	for (const auto& includePath : include_paths)
 	{
 		switch (g_game->id)
@@ -89,15 +106,10 @@ bool Mod::Init(const std::string& path)
 		}
 	}
 
-	return true;
-}
-
-void Mod::InitAdvancedCpk(const char* path)
-{
-	const auto file = std::unique_ptr<Buffer>(read_file((root / path).string().c_str(), true));
-	CpkAdvancedConfig config{};
-	config.Parse(reinterpret_cast<char*>(file->memory));
-	config.Process(*loader->binder, root);
+	for (const auto& config : cpk_configs)
+	{
+		config.Process(*loader->binder, root);
+	}
 }
 
 void Mod::RaiseEvent(const char* name, void* params) const

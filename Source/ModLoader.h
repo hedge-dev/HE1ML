@@ -93,6 +93,12 @@ struct ModLoaderAPI_t
 
 #undef DECLARE_API_FUNC
 
+struct FilterModArguments_t
+{
+	const Mod_t* mod;
+	bool handled{};
+};
+
 #ifdef MODLOADER_IMPLEMENTATION
 #define LOG(MSG, ...) { LOG_IMPL(MSG "\n", __VA_ARGS__); }
 
@@ -133,6 +139,7 @@ public:
 	void BroadcastMessageImm(size_t id, void* data) const;
 	void OnUpdate();
 	void ProcessMessage(size_t id, void* data);
+	void FilterMods();
 	void AddLogger(void* obj, LogEvent_t* event)
 	{
 		log_handlers.emplace_back(obj, event);

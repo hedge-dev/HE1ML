@@ -147,8 +147,24 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		}
 	}
 
+	FilterMods();
+
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
 	v0::ModInfo_t info{ &list, nullptr, &g_ml_api };
+
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		const auto root = mods[i]->root.string();
+		SetDllDirectoryA(root.c_str());
+		SetCurrentDirectoryA(root.c_str());
+
+		info.CurrentMod = mod_handles[i].get();
+		mods[i]->RaiseEvent("Init", &info);
+		mods[i]->GetEvents("OnFrame", update_handlers);
+		mods[i]->Init();
+	}
+
+	SetCurrentDirectoryA(root_path.c_str());
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{
@@ -161,7 +177,7 @@ bool ModLoader::RegisterMod(const std::string& path)
 {
 	auto mod = std::make_unique<Mod>(this);
 
-	if (!mod->Init(path))
+	if (!mod->Load(path))
 	{
 		return false;
 	}
@@ -175,14 +191,12 @@ bool ModLoader::RegisterMod(const std::string& path)
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
 	v0::ModInfo_t info{ &list, m.get(), &g_ml_api };
 
-	mod->GetEvents("OnFrame", update_handlers);
-
 	const auto root = mod->root.string();
 	SetDllDirectoryA(root.c_str());
 	SetCurrentDirectoryA(root.c_str());
-	mod->RaiseEvent("Init", &info);
 
 	SetCurrentDirectoryA(root_path.c_str());
+
 	mods.push_back(std::move(mod));
 	return true;
 }
@@ -220,6 +234,70 @@ void ModLoader::ProcessMessage(size_t id, void* data)
 	}
 	Game::Message msg{ id, data };
 	g_game->EventProc(eGameEvent_ProcessMessage, &msg);
+}
+
+void ModLoader::FilterMods()
+{
+	std::vector<size_t> votes{};
+	std::vector<std::vector<size_t>> sub_votes{};
+	std::vector<size_t> executions{};
+
+	votes.resize(mods.size());
+	sub_votes.resize(mods.size());
+	executions.reserve(mods.size());
+
+	for (auto& vote : sub_votes)
+	{
+		vote.reserve(std::min(mods.size(), static_cast<size_t>(8)));
+	}
+
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		for (size_t j = 0; j < mods.size(); j++)
+		{
+			if (i == j)
+				continue;
+
+			FilterModArguments_t args{ mod_handles[j].get(), false };
+			mods[i]->RaiseEvent("FilterMod", &args);
+
+			if (args.handled)
+			{
+				votes[j]++;
+				sub_votes[i].push_back(j);
+			}
+		}
+	}
+	
+	for (size_t i = 0; i < votes.size(); i++)
+	{
+		if (votes[i] != 0)
+		{
+			for (const auto& other : sub_votes[i])
+			{
+				// Circular references is vote rigging, ignore and deny allowing both
+				if (std::ranges::find(sub_votes[other], i) != sub_votes[other].end())
+				{
+					continue;
+				}
+				votes[other]--;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < votes.size(); i++)
+	{
+		if (votes[i] != 0)
+		{
+			executions.push_back(i);
+		}
+	}
+
+	for (intptr_t i = static_cast<intptr_t>(executions.size()) - 1; i >= 0; i--)
+	{
+		mods.erase(executions[i] + mods.begin());
+		mod_handles.erase(executions[i] + mod_handles.begin());
+	}
 }
 
 void ModLoader::WriteLog(int category, int sub_category, const char* message, size_t p1, size_t p2, size_t* parray) const

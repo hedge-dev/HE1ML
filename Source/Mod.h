@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "CpkAdvancedConfig.h"
 
 class ModLoader;
 typedef void ML_API ModEvent_t(void* params);
@@ -17,11 +18,13 @@ public:
 	std::vector<std::string> include_paths;
 	std::vector<HMODULE> modules;
 	std::vector<ModMessageProc_t*> msg_processors;
+	std::vector<CpkAdvancedConfig> cpk_configs;
 	ModLoader* loader;
 
 	Mod(ModLoader* in_loader) : loader(in_loader) {}
-	bool Init(const std::string& path);
-	void InitAdvancedCpk(const char* path);
+	bool Load(const std::string& path);
+	void LoadAdvancedCpk(const char* path);
+	void Init();
 	void RaiseEvent(const char* name, void* params) const;
 	int GetEvents(const char* name, std::vector<ModEvent_t*>& out) const;
 	void SendMessageImm(size_t id, void* data) const;
