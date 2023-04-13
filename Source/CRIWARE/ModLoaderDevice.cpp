@@ -12,7 +12,6 @@ struct CriFsIoMLHandle
 namespace
 {
 	std::vector<const CriFsIoInterfaceTag*> g_devices{};
-	VirtualFileSystem* g_vfs{};
 	std::unordered_set<CriFsIoMLHandle*> g_handles{};
 	std::mutex g_lock{};
 }
@@ -376,9 +375,4 @@ size_t CriFsIoML_ResolveDevice(const char* path)
 	}
 
 	return -1;
-}
-
-void CriFsIoML_SetVFS(VirtualFileSystem* vfs)
-{
-	g_vfs = vfs;
 }

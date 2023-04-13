@@ -124,8 +124,6 @@ void CriGensInit()
 	CriFsIoInterfacePtr ioif{};
 	g_cri->criFsIo_SelectIo(".", &id, &ioif);
 
-	CriFsIoML_SetVFS(g_vfs);
-
 	CriFsIoML_AddDevice(*ioif);
 	CriFsIoML_AddDevice(cpk_io_interface);
 	CriFsIoML_AddDevice(cpk_req_io_interface);

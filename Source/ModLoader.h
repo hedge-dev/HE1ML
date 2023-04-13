@@ -7,8 +7,24 @@ struct MLUpdateInfo
 };
 
 #define ML_API_VERSION 1
+#define ML_MSG_ADD_LOG_HANDLER 1
+
+#define ML_LOG_LEVEL_INFO 0
+#define ML_LOG_LEVEL_WARNING 1
+#define ML_LOG_LEVEL_ERROR 2
+
+#define ML_LOG_CATEGORY_GENERAL 0
+#define ML_LOG_CATEGORY_CRIWARE 1
+
+typedef void ML_API LogEvent_t(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 struct ModLoaderAPI_t;
 struct CommonLoaderAPI;
+
+struct AddLogHandlerMessage_t
+{
+	void* obj{};
+	LogEvent_t* handler{};
+};
 
 #ifdef MODLOADER_IMPLEMENTATION
 namespace v0
@@ -71,13 +87,14 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(void, SendMessageToLoader, size_t id, void* data);
 	DECLARE_API_FUNC(int, BindFile, const char* path, const char* destination);
 	DECLARE_API_FUNC(int, BindDirectory, const char* path, const char* destination);
+	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
 };
 
 #undef DECLARE_API_FUNC
 
 #ifdef MODLOADER_IMPLEMENTATION
-#define LOG(MSG, ...) { printf("[HE1ML] " MSG "\n", __VA_ARGS__); }
+#define LOG(MSG, ...) { LOG_IMPL(MSG "\n", __VA_ARGS__); }
 
 #include <string>
 #include <memory>
@@ -85,6 +102,7 @@ struct ModLoaderAPI_t
 #include "Mod.h"
 #include "FileBinder.h"
 #include "VirtualFileSystem.h"
+#include "Globals.h"
 
 extern ModLoaderAPI_t g_ml_api;
 
@@ -107,12 +125,44 @@ public:
 	std::vector<ModEvent_t*> update_handlers{};
 	MLUpdateInfo update_info{};
 
+	std::vector<std::pair<void*, LogEvent_t*>> log_handlers{};
+
 	void Init(const char* configPath);
 	void LoadDatabase(const std::string& databasePath, bool append = false);
 	bool RegisterMod(const std::string& path);
 	void BroadcastMessageImm(size_t id, void* data) const;
 	void OnUpdate();
 	void ProcessMessage(size_t id, void* data);
+	void AddLogger(void* obj, LogEvent_t* event)
+	{
+		log_handlers.emplace_back(obj, event);
+	}
+
+	void WriteLog(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray) const;
+	void WriteLog(int level, int category, const char* message, size_t p1, size_t p2) const
+	{
+		WriteLog(level, category, message, p1, p2, nullptr);
+	}
+
+	void WriteLog(int level, int category, const char* message, size_t p1) const
+	{
+		WriteLog(level, category, message, p1, 0, nullptr);
+	}
+
+	void WriteLog(int level, int category, const char* message) const
+	{
+		WriteLog(level, category, message, 0, 0, nullptr);
+	}
+
+	void Log(const char* message) const
+	{
+		WriteLog(ML_LOG_LEVEL_INFO, ML_LOG_CATEGORY_GENERAL, message);
+	}
+
+	void LogError(const char* message) const
+	{
+		WriteLog(ML_LOG_LEVEL_ERROR, ML_LOG_CATEGORY_GENERAL, message);
+	}
 
 	void SetUseSaveRedirection(bool value)
 	{
@@ -121,4 +171,16 @@ public:
 
 	void SetSaveFile(const char* path);
 };
+
+template<typename... T>
+inline void LOG_IMPL(const char* msg, T... args)
+{
+	if (!g_loader)
+	{
+		return;
+	}
+
+	g_loader->WriteLog(ML_LOG_LEVEL_INFO, ML_LOG_CATEGORY_GENERAL, msg, reinterpret_cast<size_t>(args)...);
+}
+
 #endif

@@ -7,6 +7,25 @@
 #include "Mod.h"
 
 void D3D9Hooks_Init();
+void StdOutLogHandler(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)
+{
+	if (category == ML_LOG_CATEGORY_GENERAL)
+	{
+		printf("[HE1ML] ");
+	}
+	else if (category == ML_LOG_CATEGORY_CRIWARE)
+	{
+		printf("[CRIWARE] ");
+	}
+
+	printf(message, p1, p2, parray);
+
+	if (category == ML_LOG_CATEGORY_CRIWARE)
+	{
+		printf("\n");
+	}
+}
+
 void ModLoader::Init(const char* configPath)
 {
 	g_loader = this;
@@ -41,13 +60,7 @@ void ModLoader::Init(const char* configPath)
 		}
 	}
 
-	if (!AttachConsole(ATTACH_PARENT_PROCESS))
-	{
-		AllocConsole();
-	}
-
 	SetCurrentDirectoryA(root_path.c_str());
-	freopen("CONOUT$", "w", stdout);
 	config_path = configPath;
 
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
@@ -58,6 +71,17 @@ void ModLoader::Init(const char* configPath)
 	save_redirection = strcmp(cpkSection["EnableSaveFileRedirection"], "0") != 0;
 	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
 	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
+
+	if (stricmp(strtrim(cpkSection["LogType"], "\"").c_str(), "console") == 0)
+	{
+		if (!AttachConsole(ATTACH_PARENT_PROCESS))
+		{
+			AllocConsole();
+		}
+		freopen("CONOUT$", "w", stdout);
+
+		AddLogger(this, StdOutLogHandler);
+	}
 
 	std::string dbPath = strtrim(cpkSection["ModsDbIni"], "\"");
 	if (dbPath.empty())
@@ -71,7 +95,6 @@ void ModLoader::Init(const char* configPath)
 	InitCri(this);
 
 	g_game->EventProc(eGameEvent_Init, nullptr);
-	CommonLoader::RaiseInitializers();
 
 	if (!g_game->EventProc(eGameEvent_InstallUpdateEvent, nullptr))
 	{
@@ -93,6 +116,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	codesPath.resize(strlen(codesPath.data()));
 	codesPath.append("\\Codes.dll");
 	CommonLoader::LoadAssembly(codesPath.c_str());
+	CommonLoader::RaiseInitializers();
 
 	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str(), true));
 	if (!file)
@@ -168,18 +192,37 @@ void ModLoader::BroadcastMessageImm(size_t id, void* data) const
 
 void ModLoader::OnUpdate()
 {
+	CommonLoader::RaiseUpdates();
+
 	for (const auto& handler : update_handlers)
 	{
 		handler(&update_info);
 	}
-
-	CommonLoader::RaiseUpdates();
 }
 
 void ModLoader::ProcessMessage(size_t id, void* data)
 {
+	if (id == ML_MSG_ADD_LOG_HANDLER && data != nullptr)
+	{
+		const auto* msg = static_cast<AddLogHandlerMessage_t*>(data);
+		if (msg->handler == nullptr)
+		{
+			return;
+		}
+
+		AddLogger(msg->obj, msg->handler);
+		return;
+	}
 	Game::Message msg{ id, data };
 	g_game->EventProc(eGameEvent_ProcessMessage, &msg);
+}
+
+void ModLoader::WriteLog(int category, int sub_category, const char* message, size_t p1, size_t p2, size_t* parray) const
+{
+	for (const auto& handler : log_handlers)
+	{
+		handler.second(handler.first, category, sub_category, message, p1, p2, parray);
+	}
 }
 
 void ModLoader::SetSaveFile(const char* path)
@@ -238,6 +281,11 @@ int ML_API ModLoader_BindDirectory(const char* path, const char* destination)
 	return g_binder->BindDirectory(path, destination);
 }
 
+void ML_API ModLoader_Log(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)
+{
+	g_loader->WriteLog(level, category, message, p1, p2, parray);
+}
+
 void ML_API ModLoader_SetSaveFile(const char* path)
 {
 	g_loader->SetSaveFile(path);
@@ -254,5 +302,6 @@ ModLoaderAPI_t g_ml_api
 	ModLoader_SendMessageToLoader,
 	ModLoader_BindFile,
 	ModLoader_BindDirectory,
+	ModLoader_Log,
 	ModLoader_SetSaveFile
 };

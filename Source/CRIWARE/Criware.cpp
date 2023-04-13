@@ -30,12 +30,16 @@ void* g_cri_hooks[ML_CRIWARE_HOOK_MAX]{};
 
 void criErr_Callback(const CriChar8* errid, CriUint32 p1, CriUint32 p2, CriUint32* parray)
 {
-	printf(errid, p1, p2);
-	printf("\n");
+	g_loader->WriteLog(ML_LOG_LEVEL_ERROR, ML_LOG_CATEGORY_CRIWARE, errid, p1, p2, parray);
 }
 
 HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path, void* work, CriSint32 worksize, CriFsBindId* bndrid)
 {
+	if (g_cri->criErr_SetCallback != nullptr)
+	{
+		g_cri->criErr_SetCallback(criErr_Callback);
+	}
+
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_BINDCPK, CriFsBindCpkHook_t, bndrhn, srcbndrhn, path, work, worksize, bndrid);
 
 	std::vector<char> path_buffer{ path, path + strlen(path) + 1 };
@@ -87,7 +91,7 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 			if (g_loader->binder->ResolvePath(src_path, &replacePath) == eBindError_None)
 			{
 				path = replacePath.c_str();
-				LOG("%s -> %s", src_path, path)
+				LOG("%s -> %s", src_path, path);
 			}
 		}
 		else // others
@@ -96,7 +100,7 @@ HOOK(CriFsIoError, CRIAPI, criFsiowin_Open, 0x007D6B1E, const CriChar8* path, Cr
 			if (g_loader->binder->ResolvePath(original_path, &replacePath) == eBindError_None)
 			{
 				path = replacePath.c_str();
-				LOG("%s -> %s", original_path, path)
+				LOG("%s -> %s", original_path, path);
 			}
 		}
 	}
@@ -156,7 +160,7 @@ void InitCri(ModLoader* loader)
 {
 	if (!g_game->GetValue(eGameValueKey_CriwareTable, reinterpret_cast<void**>(&g_cri)))
 	{
-		LOG("Skipping CRIWARE redirection, CRIWARE table not found")
+		LOG("Skipping CRIWARE redirection, CRIWARE table not found");
 		return;
 	}
 

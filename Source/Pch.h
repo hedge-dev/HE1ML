@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <unordered_map>
 
+#include "Globals.h"
 #include "StubFunctions.h"
 #include "ini.hpp"
 #include "Helpers.h"

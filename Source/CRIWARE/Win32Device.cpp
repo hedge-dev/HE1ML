@@ -2,11 +2,6 @@
 #include "Win32Device.h"
 #include <FileBinder.h>
 
-namespace
-{
-	FileBinder* g_binder{};
-}
-
 struct CriFsIoWinHandle
 {
 	HANDLE file{};
@@ -266,8 +261,3 @@ CriFsIoInterfaceTag win_io_interface
 	CriFsIoWin_GetWriteSize,
 	CriFsIoWin_Flush,
 };
-
-void CriFsIoWin_SetBinder(FileBinder* binder)
-{
-	g_binder = binder;
-}
