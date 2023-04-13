@@ -68,6 +68,11 @@ void ModLoader::Init(const char* configPath)
 	const Ini ini{ reinterpret_cast<char*>(file->memory) };
 	const auto cpkSection = ini["CPKREDIR"];
 
+	if (strcmp(cpkSection["Enabled"], "0") == 0)
+	{
+		return;
+	}
+
 	save_redirection = strcmp(cpkSection["EnableSaveFileRedirection"], "0") != 0;
 	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
 	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
