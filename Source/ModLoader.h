@@ -16,6 +16,8 @@ struct MLUpdateInfo
 #define ML_LOG_CATEGORY_GENERAL 0
 #define ML_LOG_CATEGORY_CRIWARE 1
 
+#define ML_MOD_PRIORITY_MAX 0
+
 typedef void ML_API LogEvent_t(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 struct ModLoaderAPI_t;
 struct CommonLoaderAPI;
