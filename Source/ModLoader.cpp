@@ -33,34 +33,27 @@ void ModLoader::Init(const char* configPath)
 	g_vfs = vfs;
 
 	{
-		root_path.resize(MAX_PATH, 0);
+		std::wstring pathBuf(MAX_PATH, 0);
 		do
 		{
-			const DWORD size = GetModuleFileNameA(GetModuleHandleA(nullptr), root_path.data(), root_path.length());
-			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			const DWORD size = GetModuleFileNameW(GetModuleHandleW(nullptr), pathBuf.data(), pathBuf.length());
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
 			{
-				root_path.resize(size);
+				pathBuf.resize(pathBuf.length() * 2);
+			}
+			else
+			{
+				pathBuf.resize(size);
 				break;
 			}
 
 		} while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
-		size_t pos = root_path.find_last_of('\\');
-		if (pos == std::string::npos)
-		{
-			pos = root_path.find_last_of('/');
-		}
 
-		if (pos != std::string::npos)
-		{
-			root_path.resize(pos);
-		}
-		else
-		{
-			root_path.clear();
-		}
+		root_path = pathBuf;
+		root_path.remove_filename();
 	}
 
-	SetCurrentDirectoryA(root_path.c_str());
+	SetCurrentDirectoryW(root_path.c_str());
 	config_path = configPath;
 
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
@@ -154,17 +147,25 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{
-		const auto root = mods[i]->root.string();
-		SetDllDirectoryA(root.c_str());
-		SetCurrentDirectoryA(root.c_str());
+		SetDllDirectoryW(mods[i]->root.c_str());
+		SetCurrentDirectoryW(mods[i]->root.c_str());
+
+		info.CurrentMod = mod_handles[i].get();
+		mods[i]->RaiseEvent("PreInit", &info);
+		mods[i]->GetEvents("OnFrame", update_handlers);
+	}
+
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		SetDllDirectoryW(mods[i]->root.c_str());
+		SetCurrentDirectoryW(mods[i]->root.c_str());
 
 		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("Init", &info);
-		mods[i]->GetEvents("OnFrame", update_handlers);
 		mods[i]->Init();
 	}
 
-	SetCurrentDirectoryA(root_path.c_str());
+	SetCurrentDirectoryW(root_path.c_str());
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{

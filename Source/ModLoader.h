@@ -123,8 +123,9 @@ class ModLoader
 public:
 	std::string config_path{};
 	std::string database_path{};
-	std::string root_path{};
 	std::string save_file{ "hedgehog.sav" };
+	std::filesystem::path root_path{};
+
 	bool save_redirection{ false };
 	bool save_read_through{ true };
 

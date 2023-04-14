@@ -72,7 +72,7 @@ bool Mod::Load(const std::string& path)
 	}
 
 	SetDllDirectoryA(nullptr);
-	SetCurrentDirectoryA(loader->root_path.c_str());
+	SetCurrentDirectoryW(loader->root_path.c_str());
 
 	GetEvents("ProcessMessage", *reinterpret_cast<std::vector<ModEvent_t*>*>(&msg_processors));
 
