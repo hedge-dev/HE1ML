@@ -55,7 +55,8 @@ bool Mod::Load(const std::string& path)
 	const auto dllFilesRaw = strtrim(mainSection["DLLFile"], "\"");
 	const auto dllPaths = strsplit(dllFilesRaw.c_str(), ",");
 
-	SetDllDirectoryA(root.string().c_str());
+	SetDllDirectoryW(root.c_str());
+	SetCurrentDirectoryW(root.c_str());
 
 	for (const auto& dllPath : dllPaths)
 	{
@@ -71,6 +72,7 @@ bool Mod::Load(const std::string& path)
 	}
 
 	SetDllDirectoryA(nullptr);
+	SetCurrentDirectoryA(loader->root_path.c_str());
 
 	GetEvents("ProcessMessage", *reinterpret_cast<std::vector<ModEvent_t*>*>(&msg_processors));
 

@@ -273,11 +273,6 @@ void ModLoader::FilterMods()
 		{
 			for (const auto& other : sub_votes[i])
 			{
-				// Circular references is vote rigging, ignore and deny allowing both
-				if (std::ranges::find(sub_votes[other], i) != sub_votes[other].end())
-				{
-					continue;
-				}
 				votes[other]--;
 			}
 		}
