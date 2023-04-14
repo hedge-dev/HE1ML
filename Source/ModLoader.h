@@ -35,6 +35,7 @@ namespace v0
 		const char* Name;
 		const char* Path;
 		const char* ID;
+		size_t Priority;
 		void* pImpl;
 	};
 
@@ -89,6 +90,7 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(int, BindDirectory, const char* path, const char* destination);
 	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
+	DECLARE_API_FUNC(size_t, SetPriority, const Mod_t* mod, size_t priority);
 };
 
 #undef DECLARE_API_FUNC

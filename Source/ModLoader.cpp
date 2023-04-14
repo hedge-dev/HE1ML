@@ -148,7 +148,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	FilterMods();
-
+	
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
 	v0::ModInfo_t info{ &list, nullptr, &g_ml_api };
 
@@ -187,15 +187,7 @@ bool ModLoader::RegisterMod(const std::string& path)
 		save_file = (mod->root / mod->save_file).string();
 	}
 
-	auto& m = mod_handles.emplace_back(new v0::Mod_t{ mod->title.c_str(), mod->path.c_str(), mod->id.c_str(), mod.get() });
-	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
-	v0::ModInfo_t info{ &list, m.get(), &g_ml_api };
-
-	const auto root = mod->root.string();
-	SetDllDirectoryA(root.c_str());
-	SetCurrentDirectoryA(root.c_str());
-
-	SetCurrentDirectoryA(root_path.c_str());
+	mod_handles.emplace_back(new v0::Mod_t{ mod->title.c_str(), mod->path.c_str(), mod->id.c_str(), mods.size(), mod.get() });
 
 	mods.push_back(std::move(mod));
 	return true;
@@ -266,7 +258,7 @@ void ModLoader::FilterMods()
 			}
 		}
 	}
-	
+
 	for (size_t i = 0; i < votes.size(); i++)
 	{
 		if (votes[i] != 0)
@@ -362,6 +354,43 @@ void ML_API ModLoader_SetSaveFile(const char* path)
 	g_loader->SetSaveFile(path);
 }
 
+size_t ML_API ModLoader_SetPriority(const Mod_t* mod, size_t priority)
+{
+	if (mod == nullptr)
+	{
+		return 0;
+	}
+
+	const size_t curIdx = std::ranges::find_if(g_loader->mod_handles, [mod](const auto& m) { return m.get() == mod; }) - g_loader->mod_handles.begin();
+	if (curIdx == g_loader->mod_handles.size())
+	{
+		return 0;
+	}
+
+	if (priority >= g_loader->mod_handles.size())
+	{
+		priority = g_loader->mod_handles.size();
+	}
+
+	if (curIdx == priority)
+	{
+		return curIdx;
+	}
+
+	auto handle = std::move(g_loader->mod_handles[curIdx]);
+	auto handleImpl = std::move(g_loader->mods[curIdx]);
+
+	handle->Priority = priority;
+
+	g_loader->mod_handles.emplace(g_loader->mod_handles.begin() + priority, std::move(handle));
+	g_loader->mods.emplace(g_loader->mods.begin() + priority, std::move(handleImpl));
+
+	g_loader->mod_handles.erase(g_loader->mod_handles.begin() + curIdx + (curIdx > priority ? 1 : 0));
+	g_loader->mods.erase(g_loader->mods.begin() + curIdx + (curIdx > priority ? 1 : 0));
+
+	return priority;
+}
+
 CMN_LOADER_DEFINE_API_EXPORT
 
 ModLoaderAPI_t g_ml_api
@@ -374,5 +403,6 @@ ModLoaderAPI_t g_ml_api
 	ModLoader_BindFile,
 	ModLoader_BindDirectory,
 	ModLoader_Log,
-	ModLoader_SetSaveFile
+	ModLoader_SetSaveFile,
+	ModLoader_SetPriority
 };
