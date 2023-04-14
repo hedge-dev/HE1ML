@@ -44,9 +44,8 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 
 	std::vector<char> path_buffer{ path, path + strlen(path) + 1 };
 	PathRemoveExtensionA(path_buffer.data());
-
-	const size_t len = strlen(path_buffer.data());
-	path_buffer[len] = '\0';
+	path_buffer.resize(strlen(path_buffer.data()));
+	
 	g_cpk_binds.emplace(path_buffer.data());
 	for (const auto& mod : g_loader->mods)
 	{

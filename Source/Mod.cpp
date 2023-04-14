@@ -79,12 +79,12 @@ bool Mod::Load(const std::string& path)
 
 void Mod::LoadAdvancedCpk(const char* path)
 {
-	const auto file = std::unique_ptr<Buffer>(read_file((root / path).string().c_str(), true));
-	if (file == nullptr)
+	if (!file_exists(root / path))
 	{
 		return;
 	}
-	cpk_configs.emplace_back().Parse(reinterpret_cast<char*>(file->memory));
+
+	cpk_configs.emplace_back(path);
 }
 
 void Mod::Init()
@@ -106,8 +106,15 @@ void Mod::Init()
 		}
 	}
 
-	for (const auto& config : cpk_configs)
+	for (auto& config : cpk_configs)
 	{
+		const auto file = std::unique_ptr<Buffer>(read_file((root / config.name).string().c_str(), true));
+		if (file == nullptr)
+		{
+			continue;
+		}
+
+		config.Parse(reinterpret_cast<char*>(file->memory));
 		config.Process(*loader->binder, root);
 	}
 }

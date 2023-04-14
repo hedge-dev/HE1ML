@@ -77,6 +77,7 @@ struct CpkAdvancedConfig
 	struct CommandGroup
 	{
 		ECommandType type{};
+		std::string name{};
 		std::vector<Command> commands{};
 
 		auto begin() const
@@ -90,6 +91,7 @@ struct CpkAdvancedConfig
 		}
 	};
 
+	std::string name{};
 	std::vector<CommandGroup> groups{};
 
 	void Process(FileBinder& binder, const std::filesystem::path& root) const;

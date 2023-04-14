@@ -87,6 +87,12 @@ bool file_exists(const char* path)
 	return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
+bool file_exists(const std::filesystem::path& path)
+{
+	const auto attributes = GetFileAttributesW(path.c_str());
+	return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
 std::string strtrim(const char* str, const char* s)
 {
 	if (!str)

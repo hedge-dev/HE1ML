@@ -108,7 +108,7 @@ void CpkAdvancedConfig::Parse(const char* config)
 			continue;
 		}
 
-		auto& group = groups.emplace_back(command);
+		auto& group = groups.emplace_back(command, commandSectionKey);
 		group.commands.reserve(commandSection.size());
 
 		for (const auto& prop : commandSection)
