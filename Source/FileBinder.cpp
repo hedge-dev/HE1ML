@@ -16,7 +16,7 @@ size_t FileBinder::Binding::AddDirectory(const std::string& path)
 	else if (std::holds_alternative<std::list<std::filesystem::path>>(value))
 	{
 		auto& dirs = std::get<std::list<std::filesystem::path>>(value);
-		dirs.emplace(dirs.begin(), path);
+		dirs.emplace_back(path);
 	}
 
 	return std::get<std::list<std::filesystem::path>>(value).size() - 1;

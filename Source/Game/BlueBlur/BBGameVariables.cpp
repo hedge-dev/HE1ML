@@ -94,10 +94,10 @@ namespace bb
 				return true;
 
 			case eGameEvent_PreInit:
-				g_binder->BindDirectoryRecursive("work\\", (g_loader->root_path + "\\work\\").c_str());
 				return true;
 
 			case eGameEvent_Init:
+				g_binder->BindDirectoryRecursive("work\\", (g_loader->root_path + "\\work\\").c_str());
 				InitSaveRedir();
 				InitWork();
 				return true;

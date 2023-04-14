@@ -135,7 +135,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	const auto modsSection = ini["Mods"];
 
 	const int activeModCount = std::stoi(mainSection["ActiveModCount"]);
-	for (int i = activeModCount - 1; i >= 0; i--)
+	for (int i = 0; i < activeModCount; i++)
 	{
 		sprintf_s(buf, sizeof(buf), "ActiveMod%d", i);
 		const auto modKey = strtrim(mainSection[buf], "\"");
