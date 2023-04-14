@@ -89,7 +89,7 @@ void Mod::LoadAdvancedCpk(const char* path)
 
 void Mod::Init()
 {
-	for (const auto& includePath : include_paths)
+	for (const auto& includePath : std::views::reverse(include_paths))
 	{
 		switch (g_game->id)
 		{

@@ -50,7 +50,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 	g_cpk_binds.emplace(path_buffer.data());
 	for (const auto& mod : g_loader->mods)
 	{
-		for (const auto& dir : mod->include_paths)
+		for (const auto& dir : std::views::reverse(mod->include_paths))
 		{
 			std::filesystem::path fsPath{ mod->root };
 			fsPath /= dir;
