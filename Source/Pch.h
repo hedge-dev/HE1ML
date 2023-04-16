@@ -6,6 +6,7 @@
 
 #define BASE_ADDRESS 0x400000
 #define NOMINMAX
+
 #include <Windows.h>
 #include <detours.h>
 
@@ -13,10 +14,11 @@
 #include <cstdio>
 #include <unordered_map>
 
-#include "Globals.h"
-#include "StubFunctions.h"
-#include "ini.hpp"
-#include "Helpers.h"
-#include "ModLoader.h"
-#include "Utilities.h"
 #include <CommonLoader.h>
+
+#include "Globals.h"
+#include "Helpers.h"
+#include "ini.hpp"
+#include "ModLoader.h"
+#include "StubFunctions.h"
+#include "Utilities.h"

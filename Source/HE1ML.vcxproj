@@ -57,7 +57,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -67,7 +67,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
@@ -79,7 +79,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -91,7 +91,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>detours.lib;syelog.lib;shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\Detours\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -104,9 +104,6 @@
     <ClInclude Include="CRIWARE\Win32Device.h" />
     <ClInclude Include="Dependencies\ini.hpp" />
     <ClInclude Include="ExceptionHandler.h" />
-    <ClInclude Include="Game\BlueBlur\API\hhAllocator.h" />
-    <ClInclude Include="Game\BlueBlur\API\hhList.h" />
-    <ClInclude Include="Game\BlueBlur\API\hhSharedString.h" />
     <ClInclude Include="Game\BlueBlur\CriwareGenerations.h" />
     <ClInclude Include="FileBinder.h" />
     <ClInclude Include="Game.h" />

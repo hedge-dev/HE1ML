@@ -1,3 +1,6 @@
 [submodule "Dependencies/CommonLoader"]
 	path = Dependencies/CommonLoader
 	url = https://github.com/hedge-dev/CommonLoader
+[submodule "Dependencies/BlueBlur"]
+	path = Dependencies/BlueBlur
+	url = https://github.com/blueskythlikesclouds/BlueBlur
