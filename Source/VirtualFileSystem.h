@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <ranges>
+#include <variant>
 
 #define VFS_ITERATE_RESOLVE_DIR_LINK 1
 #define VFS_ITERATE_RESOLVE_FILE_LINK 2

@@ -24,7 +24,7 @@ public:
 	Mod(ModLoader* in_loader) : loader(in_loader) {}
 	bool Load(const std::string& path);
 	void LoadAdvancedCpk(const char* path);
-	void Init();
+	void Init(int bind_priority = 0);
 	void RaiseEvent(const char* name, void* params) const;
 	int GetEvents(const char* name, std::vector<ModEvent_t*>& out) const;
 	void SendMessageImm(size_t id, void* data) const;

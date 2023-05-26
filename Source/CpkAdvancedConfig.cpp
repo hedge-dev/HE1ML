@@ -1,13 +1,13 @@
 #include "CpkAdvancedConfig.h"
 
 namespace fs = std::filesystem;
-void CpkAdvancedConfig::Process(FileBinder& binder, const fs::path& root) const
+void CpkAdvancedConfig::Process(FileBinder& binder, const fs::path& root, int bind_priority) const
 {
 	for (const auto& group : groups)
 	{
 		if (group.type == eCommandType_Add)
 		{
-			ProcessAdd(group, binder, root);
+			ProcessAdd(group, binder, root, bind_priority);
 		}
 		else if (group.type == eCommandType_Copy)
 		{
@@ -24,18 +24,18 @@ void CpkAdvancedConfig::Process(FileBinder& binder, const fs::path& root) const
 	}
 }
 
-void CpkAdvancedConfig::ProcessAdd(const CommandGroup& group, FileBinder& binder, const fs::path& root)
+void CpkAdvancedConfig::ProcessAdd(const CommandGroup& group, FileBinder& binder, const fs::path& root, int bind_priority)
 {
 	for (const auto& command : group)
 	{
 		const auto path = root / command.value;
 		if (fs::is_directory(path))
 		{
-			binder.BindDirectory(command.key.c_str(), path.string().c_str());
+			binder.BindDirectory(command.key.c_str(), path.string().c_str(), bind_priority);
 		}
 		else
 		{
-			binder.BindFile(command.key.c_str(), path.string().c_str());
+			binder.BindFile(command.key.c_str(), path.string().c_str(), bind_priority);
 		}
 	}
 }

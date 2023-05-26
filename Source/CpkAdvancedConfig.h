@@ -94,8 +94,8 @@ struct CpkAdvancedConfig
 	std::string name{};
 	std::vector<CommandGroup> groups{};
 
-	void Process(FileBinder& binder, const std::filesystem::path& root) const;
-	static void ProcessAdd(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
+	void Process(FileBinder& binder, const std::filesystem::path& root, int bind_priority) const;
+	static void ProcessAdd(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root, int bind_priority);
 	static void ProcessCopy(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
 	static void ProcessMove(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);
 	static void ProcessSwap(const CommandGroup& group, FileBinder& binder, const std::filesystem::path& root);

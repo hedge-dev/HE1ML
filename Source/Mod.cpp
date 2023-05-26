@@ -95,18 +95,19 @@ void Mod::LoadAdvancedCpk(const char* path)
 	cpk_configs.emplace_back(path);
 }
 
-void Mod::Init()
+void Mod::Init(int bind_priority)
 {
+	const auto bindPriority = (bind_priority * 0x10000) + include_paths.size();
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
-			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
+			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), bindPriority);
 			loader->binder->BindDirectoryRecursive("work/", (root / includePath / "work").string().c_str());
 
 		case eGameID_SonicLostWorld:
-			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str());
+			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str(), bindPriority);
 			break;
 
 		default:
@@ -116,14 +117,15 @@ void Mod::Init()
 
 	for (auto& config : cpk_configs)
 	{
-		const auto file = std::unique_ptr<Buffer>(read_file((root / config.name).string().c_str(), true));
+		const auto path = (root / config.name);
+		const auto file = std::unique_ptr<Buffer>(read_file(path.string().c_str(), true));
 		if (file == nullptr)
 		{
 			continue;
 		}
 
 		config.Parse(reinterpret_cast<char*>(file->memory));
-		config.Process(*loader->binder, root);
+		config.Process(*loader->binder, path.parent_path(), bindPriority);
 	}
 }
 

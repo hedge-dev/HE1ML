@@ -1,5 +1,8 @@
 #pragma once
-#include <stdbool.h>
+#include <set>
+
+template<typename T, typename TCompare = std::greater<T>>
+using priority_queue = std::multiset<T, TCompare>;
 
 class Buffer
 {
