@@ -17,11 +17,15 @@ HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 	originaltmainCRTStartup();
 }
 
-void Startup()
+void Startup(HMODULE module)
 {
 	InitExceptionHandler();
 	g_game = &Game::GetExecutingGame();
-	ResolveStubMethods(LoadSystemLibrary("d3d9.dll"));
+
+	char buffer[4096];
+	GetModuleFileNameA(module, buffer, sizeof(buffer));
+
+	ResolveStubMethods(LoadSystemLibrary(path_filename(buffer)));
 
 	if (g_game->id == eGameID_Unknown)
 	{
@@ -60,7 +64,7 @@ BOOL WINAPI DllMain(_In_ HINSTANCE instance, _In_ DWORD reason, _In_ LPVOID rese
 	switch (reason)
 	{
 	case DLL_PROCESS_ATTACH:
-		Startup();
+		Startup(instance);
 		break;
 
 	case DLL_PROCESS_DETACH:

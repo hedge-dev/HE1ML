@@ -21,6 +21,9 @@ extern "C"
 	MAKE_STUB(Direct3DShaderValidatorCreate9);
 	MAKE_STUB(PSGPError);
 	MAKE_STUB(PSGPSampleTexture);
+
+	// dinput8.dll
+	MAKE_STUB(DirectInput8Create);
 }
 
 void ResolveStubMethods(void* module)

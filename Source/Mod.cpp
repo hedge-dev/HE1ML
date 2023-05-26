@@ -64,7 +64,13 @@ bool Mod::Load(const std::string& path)
 		HMODULE mod = LoadLibraryA((root / dllPath).string().c_str());
 		if (!mod)
 		{
-			LOG("\t\t\tFailed to load DLL %s", dllPath.c_str());
+			char* reason{};
+			FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, 
+				GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&reason, 0, NULL);
+
+			LOG("\t\t\tFailed to load DLL %s: %s", dllPath.c_str(), reason);
+
+			LocalFree(reason);
 			continue;
 		}
 
