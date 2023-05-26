@@ -8,7 +8,13 @@ ModLoader loader{};
 void Init()
 {
 	CommonLoader::Init();
-	loader.Init("cpkredir.ini");
+	if (file_exists(MODLOADER_CONFIG_NAME))
+	{
+		loader.Init(MODLOADER_CONFIG_NAME);
+		return;
+	}
+
+	loader.Init(MODLOADER_LEGACY_CONFIG_NAME);
 }
 
 HOOK(void, WINAPI, tmainCRTStartup, nullptr)

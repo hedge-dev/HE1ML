@@ -105,6 +105,9 @@ struct FilterModArguments_t
 };
 
 #ifdef MODLOADER_IMPLEMENTATION
+#define MODLOADER_CONFIG_NAME "he1ml.ini"
+#define MODLOADER_LEGACY_CONFIG_NAME "cpkredir.ini"
+
 #define LOG(MSG, ...) { LOG_IMPL(MSG "\n", __VA_ARGS__); }
 
 #include <string>

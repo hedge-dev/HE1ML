@@ -56,10 +56,12 @@ void ModLoader::Init(const char* configPath)
 	SetCurrentDirectoryW(root_path.c_str());
 	config_path = configPath;
 
+	const bool isLegacy = stricmp(path_filename(configPath), MODLOADER_LEGACY_CONFIG_NAME) == 0;
+
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
 
 	const Ini ini{ reinterpret_cast<char*>(file->memory) };
-	const auto cpkSection = ini["CPKREDIR"];
+	const auto cpkSection = ini[isLegacy ? "CPKREDIR" : "HEDGEHOG"];
 
 	if (strcmp(cpkSection["Enabled"], "0") == 0)
 	{
