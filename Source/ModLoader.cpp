@@ -31,7 +31,7 @@ void ModLoader::Init(const char* configPath)
 	g_loader = this;
 	g_binder = binder.get();
 	g_vfs = vfs;
-
+	
 	{
 		std::wstring pathBuf(MAX_PATH, 0);
 		do
@@ -56,10 +56,12 @@ void ModLoader::Init(const char* configPath)
 	SetCurrentDirectoryW(root_path.c_str());
 	config_path = configPath;
 
+	const bool isLegacy = stricmp(path_filename(configPath), MODLOADER_LEGACY_CONFIG_NAME) == 0;
+
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
 
 	const Ini ini{ reinterpret_cast<char*>(file->memory) };
-	const auto cpkSection = ini["CPKREDIR"];
+	const auto cpkSection = ini[isLegacy ? "CPKREDIR" : "HEDGEHOG"];
 
 	if (strcmp(cpkSection["Enabled"], "0") == 0)
 	{
@@ -162,7 +164,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 
 		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("Init", &info);
-		mods[i]->Init();
+		mods[i]->Init(mods.size() - i);
 	}
 
 	SetCurrentDirectoryW(root_path.c_str());
@@ -335,14 +337,14 @@ void ML_API ModLoader_SendMessageToLoader(size_t id, void* data)
 	g_loader->ProcessMessage(id, data);
 }
 
-int ML_API ModLoader_BindFile(const char* path, const char* destination)
+int ML_API ModLoader_BindFile(const char* path, const char* destination, int priority)
 {
-	return g_binder->BindFile(path, destination);
+	return g_binder->BindFile(path, destination, priority);
 }
 
-int ML_API ModLoader_BindDirectory(const char* path, const char* destination)
+int ML_API ModLoader_BindDirectory(const char* path, const char* destination, int priority)
 {
-	return g_binder->BindDirectory(path, destination);
+	return g_binder->BindDirectory(path, destination, priority);
 }
 
 void ML_API ModLoader_Log(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)

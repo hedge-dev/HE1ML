@@ -250,6 +250,12 @@ VirtualFileSystem::Entry* VirtualFileSystem::Entry::make(Entry* root, const std:
 			continue;
 		}
 
+		if (part == "/")
+		{
+			current = root;
+			continue;
+		}
+
 		if (part == ".")
 		{
 			continue;

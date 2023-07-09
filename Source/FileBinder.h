@@ -3,7 +3,6 @@
 #include <unordered_set>
 #include <optional>
 #include <mutex>
-#include <variant>
 #include "VirtualFileSystem.h"
 
 enum EBindError
@@ -21,11 +20,36 @@ class FileBinder
 public:
 	struct Binding
 	{
-		std::variant<std::monostate, std::filesystem::path, std::list<std::filesystem::path>> value;
-		size_t AddDirectory(const std::string& path);
-		void SetFile(const std::string& path);
+		struct Bind
+		{
+			int priority{};
+			std::filesystem::path path{};
 
-		bool Query(const char* file, std::string& out_path) const;
+			bool operator<(const Bind& other) const
+			{
+				return priority < other.priority;
+			}
+
+			bool operator>(const Bind& other) const
+			{
+				return priority > other.priority;
+			}
+		};
+
+		priority_queue<Bind> binds;
+		bool is_directory{};
+		void BindDirectory(const std::string& path, int priority);
+		void BindFile(const std::string& path, int priority);
+
+		const Bind* Query(const char* file, std::string& out_path) const;
+		int HighestPriority() const
+		{
+			if (binds.empty())
+			{
+				return INT_MIN;
+			}
+			return binds.begin()->priority;
+		}
 	};
 
 	std::vector<std::optional<Binding>> bindings{};
@@ -34,11 +58,13 @@ public:
 	FileBinder();
 	EBindError Unbind(size_t id);
 	EBindError EnumerateFiles(const char* path, const std::function<bool(const std::filesystem::path&)>& callback) const;
-	EBindError BindFile(const char* path, const char* destination, size_t* out_id = nullptr);
-	EBindError BindDirectory(const char* path, const char* destination);
+	EBindError BindFile(const char* path, const char* destination, int priority);
+	EBindError BindDirectory(const char* path, const char* destination, int priority);
 	EBindError BindDirectoryRecursive(const char* path, const char* destination);
 	EBindError FileExists(const char* path) const;
 	EBindError ResolvePath(const char* path, std::string* out) const;
 	Binding& GetFreeBinding();
 	size_t AllocateBinding();
+
+	priority_queue<std::reference_wrapper<const Binding::Bind>, std::greater<const Binding::Bind>> CollectBindings(const char* path) const;
 };

@@ -3,7 +3,6 @@
 
 LONG WINAPI HandleException(PEXCEPTION_POINTERS pExceptionInfo)
 {
-	MessageBoxA(nullptr, "Unhandled exception", "Error", MB_OK | MB_ICONERROR);
 	if (!CreateDirectoryA("./crashdumps", nullptr))
 	{
 		if (GetLastError() != ERROR_ALREADY_EXISTS)

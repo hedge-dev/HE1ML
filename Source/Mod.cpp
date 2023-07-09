@@ -64,7 +64,13 @@ bool Mod::Load(const std::string& path)
 		HMODULE mod = LoadLibraryA((root / dllPath).string().c_str());
 		if (!mod)
 		{
-			LOG("\t\t\tFailed to load DLL %s", dllPath.c_str());
+			char* reason{};
+			FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, 
+				GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&reason, 0, NULL);
+
+			LOG("\t\t\tFailed to load DLL %s: %s", dllPath.c_str(), reason);
+
+			LocalFree(reason);
 			continue;
 		}
 
@@ -89,18 +95,19 @@ void Mod::LoadAdvancedCpk(const char* path)
 	cpk_configs.emplace_back(path);
 }
 
-void Mod::Init()
+void Mod::Init(int bind_priority)
 {
+	const auto bindPriority = (bind_priority * 0x10000) + include_paths.size();
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
-			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
+			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), bindPriority);
 			loader->binder->BindDirectoryRecursive("work/", (root / includePath / "work").string().c_str());
 
 		case eGameID_SonicLostWorld:
-			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str());
+			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str(), bindPriority);
 			break;
 
 		default:
@@ -110,14 +117,15 @@ void Mod::Init()
 
 	for (auto& config : cpk_configs)
 	{
-		const auto file = std::unique_ptr<Buffer>(read_file((root / config.name).string().c_str(), true));
+		const auto path = (root / config.name);
+		const auto file = std::unique_ptr<Buffer>(read_file(path.string().c_str(), true));
 		if (file == nullptr)
 		{
 			continue;
 		}
 
 		config.Parse(reinterpret_cast<char*>(file->memory));
-		config.Process(*loader->binder, root);
+		config.Process(*loader->binder, path.parent_path(), bindPriority);
 	}
 }
 
