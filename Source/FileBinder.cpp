@@ -78,6 +78,12 @@ EBindError FileBinder::Unbind(size_t id)
 
 EBindError FileBinder::EnumerateFiles(const char* path, const std::function<bool(const std::filesystem::path&)>& callback) const
 {
+	if (std::filesystem::exists(path))
+	{
+		for (auto& filePath : std::filesystem::directory_iterator(path))
+			callback(filePath);
+	}
+
 	//if (callback == nullptr)
 	//{
 	//	return eBindError_BadArguments;
