@@ -50,21 +50,22 @@ HOOK(boost::shared_ptr<Hedgehog::Database::SLoadElement>*, __fastcall, CDatabase
 			This->LoadDirectory(database, "work/" + archiveName.substr(0, extensionIdx), archiveParam);
 			for (const auto& bind : bindings)
 			{
-				auto archiveList = boost::make_shared<Hedgehog::Database::CArchiveList>();
+				auto symbol = make_string_symbol(path_dirname(bind.path.c_str()));
+				const auto arEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), arName.c_str());
+				const auto arlEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), path_noextension(path_filename(arlName.c_str())));
 
-				auto file = std::unique_ptr<Buffer>{ read_file(bind.path.c_str(), false) };
-				if (file)
+				if (!This->m_spArchiveListManager->GetArchiveList(arlEncoded.c_str()))
 				{
-					auto symbol = make_string_symbol(path_dirname(bind.path.c_str()));
-					const auto arEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), arName.c_str());
-					const auto arlEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), path_noextension(path_filename(arlName.c_str())));
-					
-					This->m_spArchiveListManager->AddArchiveList(arlEncoded.c_str(), archiveList);
-					This->LoadArchiveList(archiveList, file->memory, file->size);
-
-					This->LoadArchive(database, arEncoded.c_str(), archiveParam, false, true);
-					break;
+					const auto file = std::unique_ptr<Buffer>{ read_file(bind.path.c_str(), false) };
+					if (file)
+					{
+						auto archiveList = boost::make_shared<Hedgehog::Database::CArchiveList>();
+						This->m_spArchiveListManager->AddArchiveList(arlEncoded.c_str(), archiveList);
+						This->LoadArchiveList(archiveList, file->memory, file->size);
+					}
 				}
+
+				This->LoadArchive(database, arEncoded.c_str(), archiveParam, false, true);
 			}
 		}
 	}
@@ -77,6 +78,6 @@ namespace bb
 	{
 		INSTALL_HOOK(CDirectoryD3D9GetFiles);
 		INSTALL_HOOK(CDatabaseLoaderLoadArchive);
-		// WRITE_MEMORY(0x6A6D0C, uint8_t, 0x90, 0xE9);
+		WRITE_MEMORY(0x6A6D0C, uint8_t, 0x90, 0xE9);
 	}
 }
