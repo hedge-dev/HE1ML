@@ -104,7 +104,7 @@ void Mod::Init(int bind_priority)
 		{
 		case eGameID_SonicGenerations:
 			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), bindPriority);
-			loader->binder->BindDirectoryRecursive("work/", (root / includePath / "work").string().c_str());
+			loader->binder->BindDirectory("work/", (root / includePath / "work").string().c_str(), bindPriority);
 
 		case eGameID_SonicLostWorld:
 			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str(), bindPriority);

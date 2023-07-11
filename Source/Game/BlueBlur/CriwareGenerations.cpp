@@ -14,7 +14,7 @@ namespace
 
 HOOK(CriError, __cdecl, criFsIo_SelectIo, nullptr, const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif)
 {
-	size_t id = CriFsIoML_ResolveDevice(path);
+	size_t id = CriFsIoML_ResolveDevice(strformat(path).c_str());
 	if (id == -1)
 	{
 		id = 0;

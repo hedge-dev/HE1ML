@@ -2,6 +2,7 @@
 #include "ModLoader.h"
 #include "Game.h"
 #include "ExceptionHandler.h"
+#include "b64.h"
 
 ModLoader loader{};
 
@@ -22,6 +23,8 @@ HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 	Init();
 	originaltmainCRTStartup();
 }
+
+const char* fox = "fox";
 
 void Startup(HMODULE module)
 {

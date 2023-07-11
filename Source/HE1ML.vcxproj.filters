@@ -25,6 +25,7 @@
     <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ExceptionHandler.h" />
+    <ClInclude Include="b64.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />

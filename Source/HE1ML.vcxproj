@@ -95,6 +95,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="b64.h" />
     <ClInclude Include="CpkAdvancedConfig.h" />
     <ClInclude Include="CRIWARE\CpkDevice.h" />
     <ClInclude Include="CRIWARE\CpkRequestDevice.h" />

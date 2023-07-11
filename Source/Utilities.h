@@ -11,7 +11,7 @@ class Buffer
 public:
 	size_t size{};
 	uint8_t* memory{};
-	
+
 	Buffer(size_t in_size)
 	{
 		memory = new uint8_t[in_size];
@@ -21,7 +21,7 @@ public:
 
 	Buffer(void* in_memory, size_t in_size, bool owns = false) : flags(owns ? 1 : 0), size(in_size), memory(static_cast<uint8_t*>(in_memory))
 	{
-		
+
 	}
 
 	void free();
@@ -30,7 +30,7 @@ public:
 };
 
 HMODULE LoadSystemLibrary(const char* name);
-const char* make_string_symbol(const char* str);
+const char* make_string_symbol(const std::string_view& str);
 Buffer* make_buffer(size_t size);
 Buffer* read_file(const char* path, bool text_file = false);
 bool file_exists(const char* path);
@@ -40,7 +40,21 @@ void strsplit(const char* str, const char* sep, std::vector<std::string>& out, b
 const char* rstrstr(const char* str, const char* substr);
 char* rstrstr(char* str, const char* substr);
 const char* path_filename(const char* str);
+std::string_view path_dirname(const std::string_view& str);
 bool path_rmfilename(char* str);
+std::string strformat(const std::string_view& text);
+
+template<bool FromStart = true>
+std::string_view path_noextension(const std::string_view name)
+{
+	const auto pos = FromStart ? name.find_last_of('.') : name.find_first_of('.');
+	if (pos == std::string_view::npos)
+	{
+		return name;
+	}
+
+	return name.substr(0, pos);
+}
 
 constexpr char tolower_c(char c)
 {
@@ -49,6 +63,162 @@ constexpr char tolower_c(char c)
 		return c + ('a' - 'A');
 	}
 	return c;
+}
+
+constexpr char fromhex(const char* str)
+{
+	constexpr char zero = '0';
+	constexpr char a = 'a';
+
+	const auto lo = tolower_c(str[1]);
+	const auto hi = tolower_c(str[0]);
+
+	char result = 0;
+
+	if (lo >= '0' && lo <= '9')
+	{
+		result |= lo - zero;
+	}
+	else if (lo >= 'a' && lo <= 'f')
+	{
+		result |= lo - a + 10;
+	}
+
+	if (hi >= '0' && hi <= '9')
+	{
+		result |= (hi - zero) << 4;
+	}
+	else if (hi >= 'a' && hi <= 'f')
+	{
+		result |= (hi - a + 10) << 4;
+	}
+
+	return result;
+}
+
+constexpr std::uint16_t tohex(char c)
+{
+	constexpr char zero = '0';
+	constexpr char a = 'A';
+
+	const auto lo = c & 0xF;
+	const auto hi = (c >> 4) & 0xF;
+
+	std::uint16_t result = 0;
+
+	// Little endianness
+	result |= (lo < 10 ? lo + zero : lo - 10 + a) << 8;
+	result |= hi < 10 ? hi + zero : hi - 10 + a;
+
+	return result;
+}
+
+constexpr void fromhexstr(const std::string_view& str, void* buffer, size_t buffer_len)
+{
+	if (buffer_len < str.size() / 2)
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < str.size() / 2; i++)
+	{
+		static_cast<char*>(buffer)[i] = fromhex(str.data() + i * 2);
+	}
+}
+
+constexpr size_t hexstr(const void* data, size_t len, char* buffer, size_t buffer_len)
+{
+	if (buffer_len < len * 2)
+	{
+		return 0;
+	}
+
+	for (size_t i = 0; i < len; i++)
+	{
+		const auto hex = tohex(static_cast<const char*>(data)[i]);
+		reinterpret_cast<uint16_t*>(buffer)[i] = hex;
+	}
+
+	if (buffer_len > len * 2)
+	{
+		buffer[len * 2] = 0;
+	}
+
+	return len * 2;
+}
+
+constexpr std::string hexstr(const void* data, size_t len)
+{
+	std::string result;
+	result.resize(len * 2);
+	hexstr(data, len, result.data(), result.capacity());
+
+	return result;
+}
+
+constexpr std::string hexstr(const std::string_view& str)
+{
+	return hexstr(str.data(), str.size());
+}
+
+inline std::unique_ptr<Buffer> fromhexstr(const std::string_view& str)
+{
+	auto buffer = std::make_unique<Buffer>(str.size() / 2);
+	fromhexstr(str, buffer->memory, buffer->size);
+
+	return buffer;
+}
+
+constexpr size_t ptrtostr(size_t ptr, char* buffer)
+{
+	constexpr char zero = '0';
+	constexpr char a = 'a';
+
+	for (int i = (sizeof(size_t) * 2) - 1; i >= 0; --i)
+	{
+		auto digit = ptr & 0xF;
+		ptr >>= 4;
+		buffer[i] = digit < 10 ? zero + digit : a + (digit - 10);
+	}
+
+	buffer[sizeof(size_t) * 2] = 0;
+	return sizeof(size_t) * 2;
+}
+
+constexpr void* strtoptr(const std::string_view& str)
+{
+	size_t ptr = 0;
+
+	for (int i = 0; i < std::min(str.size(), sizeof(size_t) * 2); ++i)
+	{
+		ptr <<= 4;
+		auto c = str[i];
+		if (c >= '0' && c <= '9')
+		{
+			ptr |= c - '0';
+		}
+		else if (c >= 'a' && c <= 'f')
+		{
+			ptr |= c - 'a' + 10;
+		}
+		else if (c >= 'A' && c <= 'F')
+		{
+			ptr |= c - 'A' + 10;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	return reinterpret_cast<void*>(ptr);
+}
+
+constexpr std::string ptrtostr(size_t ptr)
+{
+	char buffer[(sizeof(size_t) * 2) + 1]{};
+	ptrtostr(ptr, buffer);
+	return buffer;
 }
 
 // Compatible with HMM

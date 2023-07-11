@@ -42,6 +42,7 @@ public:
 		void BindFile(const std::string& path, int priority);
 
 		const Bind* Query(const char* file, std::string& out_path) const;
+		void Query(const char* file, const std::function<bool(const std::string_view&, const Bind&)>& callback) const;
 		int HighestPriority() const
 		{
 			if (binds.empty())
@@ -49,6 +50,17 @@ public:
 				return INT_MIN;
 			}
 			return binds.begin()->priority;
+		}
+	};
+
+	struct BindResult
+	{
+		const Binding::Bind& bind;
+		std::string path;
+
+		operator const Binding::Bind&() const
+		{
+			return bind;
 		}
 	};
 
@@ -60,11 +72,10 @@ public:
 	EBindError EnumerateFiles(const char* path, const std::function<bool(const std::filesystem::path&)>& callback) const;
 	EBindError BindFile(const char* path, const char* destination, int priority);
 	EBindError BindDirectory(const char* path, const char* destination, int priority);
-	EBindError BindDirectoryRecursive(const char* path, const char* destination);
 	EBindError FileExists(const char* path) const;
 	EBindError ResolvePath(const char* path, std::string* out) const;
 	Binding& GetFreeBinding();
 	size_t AllocateBinding();
 
-	priority_queue<std::reference_wrapper<const Binding::Bind>, std::greater<const Binding::Bind>> CollectBindings(const char* path) const;
+	priority_queue<BindResult, std::greater<const Binding::Bind>> CollectBindings(const char* path) const;
 };

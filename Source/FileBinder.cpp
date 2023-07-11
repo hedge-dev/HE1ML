@@ -24,8 +24,13 @@ void FileBinder::Binding::BindFile(const std::string& path, int priority)
 	binds.emplace(priority, path);
 }
 
-const FileBinder::Binding::Bind* FileBinder::Binding::Query(const char* file, std::string& out_path) const
+void FileBinder::Binding::Query(const char* file, const std::function<bool(const std::string_view&, const Bind&)>& callback) const
 {
+	if (callback == nullptr)
+	{
+		return;
+	}
+
 	if (is_directory)
 	{
 		for (const auto& bind : binds)
@@ -33,10 +38,12 @@ const FileBinder::Binding::Bind* FileBinder::Binding::Query(const char* file, st
 			const auto path = bind.path / file;
 			auto pathString = path.string();
 			const auto attributes = GetFileAttributesA(pathString.c_str());
-			if (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY))
+			if (attributes != INVALID_FILE_ATTRIBUTES)
 			{
-				out_path = std::move(pathString);
-				return &bind;
+				if (!callback(pathString, bind))
+				{
+					return;
+				}
 			}
 		}
 	}
@@ -44,14 +51,24 @@ const FileBinder::Binding::Bind* FileBinder::Binding::Query(const char* file, st
 	{
 		if (binds.empty())
 		{
-			return nullptr;
+			return;
 		}
 
-		out_path = binds.begin()->path.string();
-		return &*binds.begin();
+		callback(binds.begin()->path.string(), *binds.begin());
 	}
+}
 
-	return nullptr;
+const FileBinder::Binding::Bind* FileBinder::Binding::Query(const char* file, std::string& out_path) const
+{
+	const Bind* result = nullptr;
+	Query(file, [&](const std::string_view& path, const Bind& bind) -> bool
+		{
+			out_path = path;
+			result = &bind;
+			return false;
+		});
+
+	return result;
 }
 
 FileBinder::FileBinder()
@@ -249,29 +266,6 @@ EBindError FileBinder::BindDirectory(const char* path, const char* destination, 
 	return eBindError_None;
 }
 
-EBindError FileBinder::BindDirectoryRecursive(const char* path, const char* destination)
-{
-	const auto result = BindDirectory(path, destination, 0);
-	if (result != eBindError_None)
-	{
-		return result;
-	}
-
-	for (const auto& file : std::filesystem::recursive_directory_iterator(destination))
-	{
-		if (!file.is_directory())
-		{
-			continue;
-		}
-
-		const auto relativePath = std::filesystem::relative(file, destination).string();
-		const auto fullPath = std::string(path) + '\\' + relativePath;
-		BindDirectory(fullPath.c_str(), file.path().string().c_str(), 0);
-	}
-
-	return eBindError_None;
-}
-
 EBindError FileBinder::FileExists(const char* path) const
 {
 	return ResolvePath(path, nullptr);
@@ -300,6 +294,7 @@ EBindError FileBinder::ResolvePath(const char* path, std::string* out) const
 		{
 			if (!entry->has_data<size_t>())
 			{
+				// continue
 				return true;
 			}
 
@@ -369,9 +364,15 @@ size_t FileBinder::AllocateBinding()
 	return bindings.size() - 1;
 }
 
-priority_queue<std::reference_wrapper<const FileBinder::Binding::Bind>, std::greater<const FileBinder::Binding::Bind>> FileBinder::CollectBindings(const char* path) const
+priority_queue<FileBinder::BindResult, std::greater<const FileBinder::Binding::Bind>> FileBinder::CollectBindings(const char* path) const
 {
-	priority_queue<std::reference_wrapper<const Binding::Bind>, std::greater<const Binding::Bind>> queue;
+	priority_queue<BindResult, std::greater<const Binding::Bind>> queue;
+	auto queryCallback = [&](const std::string_view& fsPath, const Binding::Bind& bind) -> bool
+	{
+		queue.insert({ bind, std::string(fsPath)});
+		return true;
+	};
+
 	vfs.root->walk(path, [&](VirtualFileSystem::Entry* entry) -> bool
 		{
 			if (!entry->has_data<size_t>())
@@ -380,24 +381,14 @@ priority_queue<std::reference_wrapper<const FileBinder::Binding::Bind>, std::gre
 			}
 
 			const auto& binding = bindings[entry->get_data<size_t>()];
-			if (entry->is_root() || entry->parent->is_root())
+			if (entry->is_root())
 			{
-				std::string fsPath{};
-				auto* bind = binding->Query(path, fsPath);
-				if (bind != nullptr)
-				{
-					queue.insert(*bind);
-				}
+				binding->Query(path, queryCallback);
 			}
 			else
 			{
 				const auto rel = std::filesystem::relative(path, entry->full_path());
-				std::string fsPath{};
-				auto* bind = binding->Query(rel.string().c_str(), fsPath);
-				if (bind != nullptr)
-				{
-					queue.insert(*bind);
-				}
+				binding->Query(rel.string().c_str(), queryCallback);
 			}
 
 			return true;

@@ -56,7 +56,7 @@ CriFsIoError CRIAPI CriFsIoML_Exists(const CriChar8* path, CriBool* result)
 		return CRIFS_IO_ERROR_NG;
 	}
 
-	*result = CriFsIoML_ResolveDevice(path) != -1;
+	*result = CriFsIoML_ResolveDevice(strformat(path).c_str()) != -1;
 	return CRIFS_IO_ERROR_OK;
 }
 
@@ -104,6 +104,8 @@ CriFsIoError CRIAPI CriFsIoML_Open(const CriChar8* path, CriFsFileMode mode, Cri
 		return CRIFS_IO_ERROR_NG;
 	}
 
+	const auto formatted = strformat(path);
+	path = formatted.c_str();
 	if (strstr(path, "HML\\"))
 	{
 		path += 4;

@@ -1,28 +1,31 @@
 #include "Globals.h"
-
 #define BB_EXCLUDE_NAMESPACE_ALIASES
 #include <BlueBlur.h>
 
-#include "CRIWARE/Criware.h"
-
 HOOK(void, __fastcall, CDirectoryD3D9GetFiles, 0x667160,
-     void* This,
-     void* Edx,
-     hh::list<Hedgehog::Base::CSharedString>& list,
-     Hedgehog::Base::CSharedString& path,
-     void* a3,
-     void* a4)
+	void* This,
+	void* Edx,
+	hh::list<Hedgehog::Base::CSharedString>& list,
+	Hedgehog::Base::CSharedString& path,
+	void* a3,
+	void* a4)
 {
-	g_binder->EnumerateFiles(path.c_str(), [&list, &path](auto& x) -> bool
+	const auto binds = g_binder->CollectBindings(path.c_str());
+	for (const auto& bind : binds)
 	{
-		list.emplace_back(x.filename().string().c_str());
-		return true;
-	});
+		for (const auto& entry : std::filesystem::directory_iterator(bind.path))
+		{
+			if (entry.is_regular_file())
+			{
+				list.push_back(entry.path().filename().string().c_str());
+			}
+		}
+	}
 }
 
 HOOK(boost::shared_ptr<Hedgehog::Database::SLoadElement>*, __fastcall, CDatabaseLoaderLoadArchive, 0x69A850,
-    Hedgehog::Database::CDatabaseLoader* This,
-    void* Edx,
+	Hedgehog::Database::CDatabaseLoader* This,
+	void* Edx,
 	boost::shared_ptr<Hedgehog::Database::SLoadElement>& loadElement,
 	boost::shared_ptr<Hedgehog::Database::CDatabase> database,
 	const Hedgehog::Base::CSharedString& archiveName,
@@ -42,30 +45,27 @@ HOOK(boost::shared_ptr<Hedgehog::Database::SLoadElement>*, __fastcall, CDatabase
 			const auto arName = name + ".ar";
 			const auto arlName = arName + "l";
 
-			std::string filePath;
-			if (g_binder->ResolvePath(arlName.c_str(), &filePath) == eBindError_None)
+			const auto bindings = g_binder->CollectBindings(arlName.c_str());
+
+			This->LoadDirectory(database, "work/" + archiveName.substr(0, extensionIdx), archiveParam);
+			for (const auto& bind : bindings)
 			{
 				auto archiveList = boost::make_shared<Hedgehog::Database::CArchiveList>();
 
-				FILE* file = fopen(filePath.c_str(), "rb");
+				auto file = std::unique_ptr<Buffer>{ read_file(bind.path.c_str(), false) };
 				if (file)
 				{
-					fseek(file, 0, SEEK_END);
-					size_t fileSize = ftell(file);
-					fseek(file, 0, SEEK_SET);
+					auto symbol = make_string_symbol(path_dirname(bind.path.c_str()));
+					const auto arEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), arName.c_str());
+					const auto arlEncoded = std::format("M{{{}}}{}", ptrtostr(reinterpret_cast<size_t>(symbol)), path_noextension(path_filename(arlName.c_str())));
+					
+					This->m_spArchiveListManager->AddArchiveList(arlEncoded.c_str(), archiveList);
+					This->LoadArchiveList(archiveList, file->memory, file->size);
 
-					auto fileData = std::make_unique<uint8_t[]>(fileSize);
-					fread(fileData.get(), 1, fileSize, file);
-					fclose(file);
-
-					This->m_spArchiveListManager->AddArchiveList(name, archiveList);
-					This->LoadArchiveList(archiveList, fileData.get(), fileSize);
-
-					This->LoadArchive(database, arName, archiveParam, false, true);
+					This->LoadArchive(database, arEncoded.c_str(), archiveParam, false, true);
+					break;
 				}
 			}
-
-			This->LoadDirectory(database, "work/" + archiveName.substr(0, extensionIdx), archiveParam);
 		}
 	}
 	return originalCDatabaseLoaderLoadArchive(This, Edx, loadElement, database, archiveName, archiveParam, loadImmediate);
@@ -77,6 +77,6 @@ namespace bb
 	{
 		INSTALL_HOOK(CDirectoryD3D9GetFiles);
 		INSTALL_HOOK(CDatabaseLoaderLoadArchive);
-		WRITE_MEMORY(0x6A6D0C, uint8_t, 0x90, 0xE9);
+		// WRITE_MEMORY(0x6A6D0C, uint8_t, 0x90, 0xE9);
 	}
 }

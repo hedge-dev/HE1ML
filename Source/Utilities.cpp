@@ -50,9 +50,9 @@ HMODULE LoadSystemLibrary(const char* name)
 	return LoadLibraryA(windir.c_str());
 }
 
-const char* make_string_symbol(const char* str)
+const char* make_string_symbol(const std::string_view& str)
 {
-	return g_string_symbols.insert(str).first->c_str();
+	return g_string_symbols.insert(std::string(str)).first->c_str();
 }
 
 Buffer* make_buffer(size_t size)
@@ -183,6 +183,17 @@ char* rstrstr(char* str, const char* substr)
 	return const_cast<char*>(rstrstr(static_cast<const char*>(str), substr));
 }
 
+std::string_view path_dirname(const std::string_view& str)
+{
+	const auto* pos = rstrstr(str.data(), "\\") + 1;
+	if (!pos)
+	{
+		pos = rstrstr(str.data(), "/") + 1;
+	}
+
+	return pos ? std::string_view(str.data(), pos - str.data()) : str;
+}
+
 const char* path_filename(const char* str)
 {
 	const auto* pos = rstrstr(str, "\\");
@@ -209,4 +220,77 @@ bool path_rmfilename(char* str)
 
 	*pos = 0;
 	return true;
+}
+
+std::string strformat(const std::string_view& text)
+{
+	std::stringstream ss;
+
+	const char* start = text.data();
+	struct
+	{
+		const char* data;
+		bool in;
+		char type;
+
+		size_t start;
+		size_t length;
+
+		[[nodiscard]] std::string_view string() const
+		{
+			return { data + start, length };
+		}
+	} block{ text.data() };
+
+	for (size_t i = 0; i < text.size(); i++)
+	{
+		if (text[i] == '{' && i != 0)
+		{
+			block.in = true;
+			block.start = i + 1;
+			block.type = text[i - 1];
+
+			if (block.type != 'M' && block.type != 'X')
+			{
+				block = {};
+				ss << text[i];
+			}
+			else
+			{
+				ss.seekp(-1, std::ios_base::end);
+			}
+		}
+		else if (text[i] == '}' && block.in)
+		{
+			block.in = false;
+			if (block.type == 'M')
+			{
+				ss << static_cast<const char*>(strtoptr(block.string()));
+			}
+			else if (block.type == 'X')
+			{
+				const auto data = fromhexstr(block.string());
+				ss << std::string_view{reinterpret_cast<const char*>(data->memory), data->size};
+			}
+			else
+			{
+				ss << text[i];
+			}
+		}
+		else
+		{
+			if (!block.in)
+			{
+				ss << text[i];
+			}
+			else
+			{
+				block.length++;
+			}
+		}
+	}
+
+	auto s = block.string();
+
+	return ss.str();
 }
