@@ -25,6 +25,7 @@
     <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ExceptionHandler.h" />
+    <ClInclude Include="Game\Revengeance\GameVariables.h" />
     <ClInclude Include="b64.h" />
   </ItemGroup>
   <ItemGroup>
@@ -53,6 +54,7 @@
     <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
     <ClCompile Include="Game\BlueBlur\BBWorkHandler.cpp" />
     <ClCompile Include="ExceptionHandler.cpp" />
+    <ClCompile Include="Game\Revengeance\MGRGameVariables.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

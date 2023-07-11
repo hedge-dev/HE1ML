@@ -6,7 +6,8 @@
 #include <Game.h>
 #include <Globals.h>
 
-CriFsBindId g_dir_bind{};
+CriModLoaderConfig g_cri_config{};
+std::unordered_map<void*, CriFsBindId> g_dir_bind_map{};
 std::unordered_set<std::string> g_cpk_binds{};
 
 void* g_cri_hooks[ML_CRIWARE_HOOK_MAX]{};
@@ -64,13 +65,17 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 		}
 	}
 
-	if (!g_dir_bind)
+	const bool do_bind = g_cri_config.bind_all_binders ? !g_dir_bind_map.contains(bndrhn) : g_dir_bind_map.empty();
+	if (do_bind)
 	{
 		CriSint32 dirworksize{};
 		g_cri->criFsBinder_GetWorkSizeForBindDirectory(bndrhn, c_dir_stub, &dirworksize);
 
-		g_cri->criFsBinder_BindDirectory(bndrhn, srcbndrhn, c_dir_stub, malloc(dirworksize), dirworksize, &g_dir_bind);
-		g_cri->criFsBinder_SetPriority(g_dir_bind, 90000000);
+		CriFsBindId bind_id{};
+		g_cri->criFsBinder_BindDirectory(bndrhn, srcbndrhn, c_dir_stub, malloc(dirworksize), dirworksize, &bind_id);
+		g_cri->criFsBinder_SetPriority(bind_id, 90000000);
+
+		g_dir_bind_map[bndrhn] = bind_id;
 	}
 
 	LOG("crifsbinder_BindCpkInternal: %s\n", path);
@@ -172,7 +177,6 @@ void InitCri(ModLoader* loader)
 		g_cri->criFsIoWin_Exists == nullptr ||
 		g_cri->criFsiowin_Open == nullptr ||
 		g_cri->criFsBinder_BindDirectory == nullptr ||
-		g_cri->criFsBinder_GetStatus == nullptr ||
 		g_cri->criFsBinder_SetPriority == nullptr ||
 		g_cri->criFsBinder_GetWorkSizeForBindDirectory == nullptr)
 	{

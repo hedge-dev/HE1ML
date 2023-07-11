@@ -60,7 +60,7 @@ void ModLoader::Init(const char* configPath)
 
 	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
 
-	const Ini ini{ reinterpret_cast<char*>(file->memory) };
+	const Ini ini{ reinterpret_cast<char*>(file != nullptr ? file->memory : nullptr) };
 	const auto cpkSection = ini[isLegacy ? "CPKREDIR" : "HEDGEHOG"];
 
 	if (strcmp(cpkSection["Enabled"], "0") == 0)
@@ -72,7 +72,9 @@ void ModLoader::Init(const char* configPath)
 	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
 	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
 
+#if !defined(DEBUG)
 	if (stricmp(strtrim(cpkSection["LogType"], "\"").c_str(), "console") == 0)
+#endif
 	{
 		if (!AttachConsole(ATTACH_PARENT_PROCESS))
 		{
@@ -116,7 +118,6 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	codesPath.resize(strlen(codesPath.data()));
 	codesPath.append("\\Codes.dll");
 	CommonLoader::LoadAssembly(codesPath.c_str());
-	CommonLoader::RaiseInitializers();
 
 	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str(), true));
 	if (!file)
@@ -168,6 +169,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	SetCurrentDirectoryW(root_path.c_str());
+	CommonLoader::RaiseInitializers();
 
 	for (size_t i = 0; i < mods.size(); i++)
 	{

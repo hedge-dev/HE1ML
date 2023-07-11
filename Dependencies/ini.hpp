@@ -165,9 +165,21 @@ public:
 
 	ini_t* ini;
 
-	Ini(const char* data, void* memctx = nullptr) : ini(ini_load(data, memctx))
+	Ini() : ini(ini_create(nullptr))
 	{
+		
+	}
 
+	Ini(const char* data, void* memctx = nullptr)
+	{
+		if (data != nullptr)
+		{
+			ini = ini_load(data, memctx);
+		}
+		else
+		{
+			ini = ini_create(memctx);
+		}
 	}
 
 	~Ini()

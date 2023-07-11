@@ -5,6 +5,7 @@ enum EGameID
 	eGameID_Unknown,
 	eGameID_SonicLostWorld,
 	eGameID_SonicGenerations,
+	eGameID_MetalGearRising,
 
 	eGameID_Invalid = -1,
 };

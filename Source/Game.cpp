@@ -2,11 +2,13 @@
 #include "Game.h"
 #include <Game/BlueBlur/GameVariables.h>
 #include <Game/Sonic2013/GameVariables.h>
+#include <Game/Revengeance/GameVariables.h>
 
 Game executing_game{};
 
 constexpr uint32_t timestamp_gens{ 0x4ED631A1 };
 constexpr uint32_t timestamp_slw{ 0x5677710B };
+constexpr uint32_t timestamp_mgrr{ 0x52E76F3A };
 
 const Game& Game::GetExecutingGame()
 {
@@ -27,6 +29,10 @@ const Game& Game::GetExecutingGame()
 
 		case timestamp_slw:
 			executing_game = { eGameID_SonicLostWorld, "Sonic Lost World", lw::GetValue, lw::EventProc };
+			break;
+
+		case timestamp_mgrr:
+			executing_game = { eGameID_MetalGearRising, "METAL GEAR RISING: REVENGEANCE", mgr::GetValue, mgr::EventProc };
 			break;
 
 		default:

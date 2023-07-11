@@ -15,6 +15,12 @@ bool Mod::Load(const std::string& path)
 
 	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
 
+	if (file == nullptr)
+	{
+		LOG("Failed to load mod %s", path.c_str());
+		return false;
+	}
+
 	const Ini ini{ reinterpret_cast<char*>(file->memory), nullptr };
 	const auto mainSection = ini["Main"];
 	const auto descSection = ini["Desc"];

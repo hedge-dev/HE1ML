@@ -228,9 +228,15 @@ typedef CriError (*CriFsUnbindHook_t)(CriFsBindId& bndrid);
 
 #define ML_SET_CRIWARE_HOOK(ID, FUNC) g_cri_hooks[ID] = (void*)FUNC;
 
+struct CriModLoaderConfig
+{
+	bool bind_all_binders{};
+};
+
 constexpr char c_dir_stub[] = "HML\\";
+extern CriModLoaderConfig g_cri_config;
 extern ModLoader* g_loader;
-extern CriFsBindId g_dir_bind;
+extern std::unordered_map<void*, CriFsBindId> g_dir_bind_map;
 extern std::unordered_set<std::string> g_cpk_binds;
 extern void* g_cri_hooks[];
 #endif
