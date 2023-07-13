@@ -2,7 +2,7 @@
 #include "ModLoader.h"
 #include "Game.h"
 #include "ExceptionHandler.h"
-#include "b64.h"
+#include <shellapi.h>
 
 ModLoader loader{};
 
@@ -20,11 +20,24 @@ void Init()
 
 HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 {
+	int argc;
+	auto* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+	if (argv)
+	{
+		for (int i = 1; i < argc; i++)
+		{
+			if (_wcsicmp(argv[i], L"-Lcri") == 0)
+			{
+				loader.enable_cri_logs = true;
+			}
+		}
+		LocalFree(argv);
+	}
+
 	Init();
 	originaltmainCRTStartup();
 }
-
-const char* fox = "fox";
 
 void Startup(HMODULE module)
 {

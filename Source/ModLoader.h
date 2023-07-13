@@ -132,6 +132,8 @@ public:
 	bool save_redirection{ false };
 	bool save_read_through{ true };
 
+	bool enable_cri_logs{ false };
+
 	std::unique_ptr<FileBinder> binder{ new FileBinder() };
 	VirtualFileSystem* vfs{ &binder->vfs };
 	std::vector<std::unique_ptr<Mod>> mods{};

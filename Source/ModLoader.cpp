@@ -15,6 +15,10 @@ void StdOutLogHandler(void* obj, int level, int category, const char* message, s
 	}
 	else if (category == ML_LOG_CATEGORY_CRIWARE)
 	{
+		if (!g_loader->enable_cri_logs)
+		{
+			return;
+		}
 		printf("[CRIWARE] ");
 	}
 
@@ -148,7 +152,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
 	v0::ModInfo_t info{ &list, nullptr, &g_ml_api };
 
-	for (size_t i = 0; i < mods.size(); i++)
+	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
 		SetDllDirectoryW(mods[i]->root.c_str());
 		SetCurrentDirectoryW(mods[i]->root.c_str());
@@ -158,7 +162,9 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->GetEvents("OnFrame", update_handlers);
 	}
 
-	for (size_t i = 0; i < mods.size(); i++)
+	std::ranges::reverse(update_handlers);
+
+	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
 		SetDllDirectoryW(mods[i]->root.c_str());
 		SetCurrentDirectoryW(mods[i]->root.c_str());
@@ -167,15 +173,18 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->RaiseEvent("Init", &info);
 		mods[i]->Init(mods.size() - i);
 	}
-
-	SetCurrentDirectoryW(root_path.c_str());
+	
 	CommonLoader::RaiseInitializers();
 
-	for (size_t i = 0; i < mods.size(); i++)
+	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
+		SetDllDirectoryW(mods[i]->root.c_str());
+		SetCurrentDirectoryW(mods[i]->root.c_str());
 		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("PostInit", &info);
 	}
+
+	SetCurrentDirectoryW(root_path.c_str());
 }
 
 bool ModLoader::RegisterMod(const std::string& path)
