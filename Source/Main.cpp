@@ -3,6 +3,7 @@
 #include "Game.h"
 #include "ExceptionHandler.h"
 #include <shellapi.h>
+#include "resource.h"
 
 ModLoader loader{};
 
@@ -45,13 +46,18 @@ void Startup(HMODULE module)
 	g_game = &Game::GetExecutingGame();
 
 	char buffer[4096];
+	buffer[0] = 0;
 	GetModuleFileNameA(module, buffer, sizeof(buffer));
 
 	ResolveStubMethods(LoadSystemLibrary(path_filename(buffer)));
 
+	SetEnvironmentVariableA(ML_ENVAR_NAME, PRODUCT_NAME);
+	SetEnvironmentVariableA(ML_ENVAR_VERSION, VERSION_STRING);
+	SetEnvironmentVariableA(ML_ENVAR_HOST_MODULE, path_filename(buffer));
+
 	if (g_game->id == eGameID_Unknown)
 	{
-		char buffer[4096];
+		buffer[0] = 0;
 		GetModuleFileNameA(MODULE_HANDLE, buffer, sizeof(buffer));
 		const char* message{ nullptr };
 		if (strstr(buffer, "slw.exe"))

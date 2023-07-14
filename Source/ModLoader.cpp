@@ -35,7 +35,7 @@ void ModLoader::Init(const char* configPath)
 	g_loader = this;
 	g_binder = binder.get();
 	g_vfs = vfs;
-	
+
 	{
 		std::wstring pathBuf(MAX_PATH, 0);
 		do
@@ -148,9 +148,9 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	}
 
 	FilterMods();
-	
+
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
-	v0::ModInfo_t info{ &list, nullptr, &g_ml_api };
+	v0::ModInfo_t info{ &list, nullptr, & g_ml_api };
 
 	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
@@ -160,6 +160,13 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("PreInit", &info);
 		mods[i]->GetEvents("OnFrame", update_handlers);
+	}
+	
+	std::ranges::sort(mod_handles, [](const auto& a, const auto& b) { return a->Priority < b->Priority; });
+	for (size_t i = 0; i < mod_handles.size(); i++)
+	{
+		mods[i].release();  // NOLINT(bugprone-unused-return-value)
+		mods[i].reset(static_cast<Mod*>(mod_handles[i]->pImpl));
 	}
 
 	std::ranges::reverse(update_handlers);
@@ -173,7 +180,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->RaiseEvent("Init", &info);
 		mods[i]->Init(mods.size() - i);
 	}
-	
+
 	CommonLoader::RaiseInitializers();
 
 	for (size_t i = mods.size() - 1; i != -1; i--)
@@ -391,16 +398,8 @@ size_t ML_API ModLoader_SetPriority(const Mod_t* mod, size_t priority)
 		return curIdx;
 	}
 
-	auto handle = std::move(g_loader->mod_handles[curIdx]);
-	auto handleImpl = std::move(g_loader->mods[curIdx]);
-
-	handle->Priority = priority;
-
-	g_loader->mod_handles.emplace(g_loader->mod_handles.begin() + priority, std::move(handle));
-	g_loader->mods.emplace(g_loader->mods.begin() + priority, std::move(handleImpl));
-
-	g_loader->mod_handles.erase(g_loader->mod_handles.begin() + curIdx + (curIdx > priority ? 1 : 0));
-	g_loader->mods.erase(g_loader->mods.begin() + curIdx + (curIdx > priority ? 1 : 0));
+	g_loader->mod_handles[curIdx]->Priority = priority;
+	g_loader->mod_handles[priority]->Priority = priority + 1;
 
 	return priority;
 }

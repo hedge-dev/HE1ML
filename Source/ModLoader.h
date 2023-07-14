@@ -6,6 +6,10 @@ struct MLUpdateInfo
 	void* device;
 };
 
+#define ML_ENVAR_NAME "MODLOADER_NAME"
+#define ML_ENVAR_VERSION "MODLOADER_VERSION"
+#define ML_ENVAR_HOST_MODULE "MODLOADER_HOST_MODULE"
+
 #define ML_API_VERSION 1
 #define ML_MSG_ADD_LOG_HANDLER 1
 
