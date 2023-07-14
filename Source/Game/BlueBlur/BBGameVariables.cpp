@@ -3,9 +3,15 @@
 #include "CriwareGenerations.h"
 #include "Game.h"
 #include "Globals.h"
+#include <BlueBlur.h>
 
 HOOK(void, __fastcall, OnFrameStub, 0x006F5280, void* This)
 {
+	if (g_loader->update_info.device == nullptr)
+	{
+		g_loader->update_info.device = Sonic::CApplicationDocument::ms_pInstance->get()->m_pMember->m_spRenderingInfrastructure->m_RenderingDevice.m_pD3DDevice;
+	}
+
 	g_loader->OnUpdate();
 	originalOnFrameStub(This);
 }
