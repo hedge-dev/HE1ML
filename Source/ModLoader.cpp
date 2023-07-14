@@ -323,7 +323,7 @@ const v0::Mod_t* ML_API ModLoader_FindMod(const char* id)
 {
 	for (const auto& mod : g_loader->mod_handles)
 	{
-		if (_stricmp(mod->ID, id) != 0)
+		if (_stricmp(mod->ID, id) == 0)
 		{
 			return mod.get();
 		}
