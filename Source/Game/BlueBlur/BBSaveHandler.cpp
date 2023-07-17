@@ -56,7 +56,7 @@ HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsRead, 0x00E7A220, void* ecx, 
 		return false;
 	}
 
-	LOG("Loading save file from %s", g_loader->save_file.c_str());
+	LOG("Loading save file: %s", g_loader->save_file.c_str());
 	ReadFile(hFile, buffer, bufsize, nullptr, nullptr);
 	CloseHandle(hFile);
 

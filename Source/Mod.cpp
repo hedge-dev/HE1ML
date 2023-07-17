@@ -17,7 +17,7 @@ bool Mod::Load(const std::string& path)
 
 	if (file == nullptr)
 	{
-		LOG("Failed to load mod %s", path.c_str());
+		LOG("Failed to load mod: %s", path.c_str());
 		return false;
 	}
 
@@ -47,7 +47,7 @@ bool Mod::Load(const std::string& path)
 		id.resize(strlen(id.data()));
 	}
 
-	LOG("Loading mod %s", title.c_str());
+	LOG("Loading mod: %s", title.c_str());
 
 	const int includeDirCount = std::atoi(ini["Main"]["IncludeDirCount"]);
 	char buf[32];
@@ -66,7 +66,7 @@ bool Mod::Load(const std::string& path)
 
 	for (const auto& dllPath : dllPaths)
 	{
-		LOG("\t\tLoading DLL %s", dllPath.c_str());
+		LOG("    Loading DLL: %s", dllPath.c_str());
 		HMODULE mod = LoadLibraryA((root / dllPath).string().c_str());
 		if (!mod)
 		{
@@ -74,7 +74,7 @@ bool Mod::Load(const std::string& path)
 			FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, 
 				GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&reason, 0, NULL);
 
-			LOG("\t\t\tFailed to load DLL %s: %s", dllPath.c_str(), reason);
+			LOG("        Failed to load DLL: %s (%s)", dllPath.c_str(), reason);
 
 			LocalFree(reason);
 			continue;

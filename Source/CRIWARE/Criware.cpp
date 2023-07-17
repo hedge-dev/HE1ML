@@ -78,7 +78,6 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 		g_dir_bind_map[bndrhn] = bind_id;
 	}
 
-	LOG("crifsbinder_BindCpkInternal: %s\n", path);
 	const CriError err = originalcrifsbinder_BindCpkInternal(bndrhn, srcbndrhn, path, work, worksize, bndrid);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_POST_BINDCPK, CriFsBindCpkHook_t, bndrhn, srcbndrhn, path, work, worksize, bndrid);
 	return err;

@@ -94,7 +94,7 @@ void CpkAdvancedConfig::Parse(const char* config)
 		auto commandSplits = strsplit(commandKey, ":");
 		if (commandSplits.size() != 2)
 		{
-			LOG("Invalid command %s", commandKey);
+			LOG("Invalid command: %s", commandKey);
 			continue;
 		}
 
@@ -104,7 +104,7 @@ void CpkAdvancedConfig::Parse(const char* config)
 		const auto commandSection = ini[commandSectionKey.c_str()];
 		if (!commandSection.valid())
 		{
-			LOG("Invalid command section %s", commandSectionKey.c_str());
+			LOG("Invalid command section: %s", commandSectionKey.c_str());
 			continue;
 		}
 

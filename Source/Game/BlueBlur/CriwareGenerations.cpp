@@ -56,7 +56,7 @@ CriError BindCpk(CriFsBinderHn& bndrhn, CriFsBinderHn& srcbndrhn, const CriChar8
 	}
 	if (bndrid)
 	{
-		LOG("Binding sound cpk: %s", path);
+		LOG("Binding CPK: %s", path);
 		CriFsBindId stub_id;
 		if (CriFileLoader_BindCpk(path, &stub_id) == CRIERR_OK)
 		{
