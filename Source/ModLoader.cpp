@@ -169,8 +169,6 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i].reset(static_cast<Mod*>(mod_handles[i]->pImpl));
 	}
 
-	std::ranges::reverse(update_handlers);
-
 	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
 		SetDllDirectoryW(mods[i]->root.c_str());
