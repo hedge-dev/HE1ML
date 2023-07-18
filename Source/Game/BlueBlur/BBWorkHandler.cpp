@@ -3,10 +3,12 @@
 #include <BlueBlur.h>
 #include <Hedgehog/Database/System/hhDecompressCAB.h>
 
+std::mutex decompress_mtx{};
 boost::scoped_ptr<Hedgehog::Database::CDecompressCAB> decompressor;
 
 void DecompressCAB(boost::shared_ptr<uint8_t[]>& data, size_t& size)
 {
+	std::lock_guard lock(decompress_mtx);
 	if (decompressor == nullptr)
 	{
 		decompressor.reset(new Hedgehog::Database::CDecompressCAB());
@@ -34,12 +36,8 @@ void DecompressCAB(boost::shared_ptr<uint8_t[]>& data, size_t& size)
 	
 	auto cb = boost::make_shared<MyCallback>(data, size);
 
-	decompressor->m_spCriticalSectionD3D9->Enter();
-
 	decompressor->Decompress(nullptr, "", data, size, size, cb, param);
 	decompressor->Update();
-
-	decompressor->m_spCriticalSectionD3D9->Leave();
 }
 
 static uint32_t archiveListMakeSerialMidAsmHookReturnAddr = 0x69C334;
