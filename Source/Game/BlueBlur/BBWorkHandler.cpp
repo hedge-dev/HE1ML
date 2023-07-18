@@ -1,6 +1,46 @@
 #include "Globals.h"
 #define BB_EXCLUDE_NAMESPACE_ALIASES
 #include <BlueBlur.h>
+#include <Hedgehog/Database/System/hhDecompressCAB.h>
+
+boost::scoped_ptr<Hedgehog::Database::CDecompressCAB> decompressor;
+
+void DecompressCAB(boost::shared_ptr<uint8_t[]>& data, size_t& size)
+{
+	if (decompressor == nullptr)
+	{
+		decompressor.reset(new Hedgehog::Database::CDecompressCAB());
+	}
+
+	class MyCallback : public Hedgehog::Database::CCallback
+	{
+	public:
+		boost::shared_ptr<uint8_t[]>& data;
+		size_t& size;
+
+		MyCallback(boost::shared_ptr<uint8_t[]>& result, size_t& result_size) : data(result), size(result_size)
+		{
+
+		}
+
+		void Invoke(const boost::shared_ptr<Hedgehog::Database::CDatabase>& in_spDatabase, const Hedgehog::Base::CSharedString& in_rName, boost::shared_ptr<uint8_t[]> in_spData, size_t in_DataSize, const Hedgehog::Database::SArchiveParam& in_rParam) override
+		{
+			data = in_spData;
+			size = in_DataSize;
+		}
+	};
+
+	const Hedgehog::Database::SArchiveParam param{0, 0};
+	
+	auto cb = boost::make_shared<MyCallback>(data, size);
+
+	decompressor->m_spCriticalSectionD3D9->Enter();
+
+	decompressor->Decompress(nullptr, "", data, size, size, cb, param);
+	decompressor->Update();
+
+	decompressor->m_spCriticalSectionD3D9->Leave();
+}
 
 static uint32_t archiveListMakeSerialMidAsmHookReturnAddr = 0x69C334;
 
@@ -80,17 +120,25 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 		const size_t curSplitCount = archiveList->m_ArchiveSizes.size();
 
 		const auto buffer = std::unique_ptr<Buffer>{ read_file((*it).path.c_str(), false) };
-		originalCDatabaseLoaderLoadArchiveList(This, _, archiveList, buffer->memory, buffer->size);
-
-		char appendArPath[0x400];
-		strcpy(appendArPath, (*it).path.c_str());
-
-		for (size_t i = curSplitCount; i < archiveList->m_ArchiveSizes.size(); i++)
+		if (buffer != nullptr)
 		{
-			sprintf(name + nameSize, ".ar.%02d", i);
-			sprintf(appendArPath + (*it).path.size() - 1, ".%02d", i - curSplitCount); // .arl -> .ar.%02d
+			auto shared_buffer = boost::shared_ptr<uint8_t[]>{ buffer->memory };
+			auto buffer_size = buffer->size;
+			buffer->memory = nullptr;
 
-			g_binder->BindFile(name, appendArPath, (*it).bind.priority);
+			DecompressCAB(shared_buffer, buffer_size);
+			originalCDatabaseLoaderLoadArchiveList(This, _, archiveList, shared_buffer.get(), buffer_size);
+
+			char appendArPath[0x400];
+			strcpy(appendArPath, (*it).path.c_str());
+
+			for (size_t i = curSplitCount; i < archiveList->m_ArchiveSizes.size(); i++)
+			{
+				sprintf(name + nameSize, ".ar.%02d", i);
+				sprintf(appendArPath + (*it).path.size() - 1, ".%02d", i - curSplitCount); // .arl -> .ar.%02d
+
+				g_binder->BindFile(name, appendArPath, (*it).bind.priority);
+			}
 		}
 	}
 }
