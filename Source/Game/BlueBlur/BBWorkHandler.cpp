@@ -40,6 +40,12 @@ void DecompressCAB(boost::shared_ptr<uint8_t[]>& data, size_t& size)
 	decompressor->Update();
 }
 
+struct ArchiveListEx
+{
+	Hedgehog::Base::CSharedString name;
+	uint32_t appendCount;
+};
+
 static uint32_t archiveListMakeSerialMidAsmHookReturnAddr = 0x69C334;
 
 static void __declspec(naked) archiveListMakeSerialMidAsmHook()
@@ -87,26 +93,27 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 	uint32_t dataSize)
 {
 	originalCDatabaseLoaderLoadArchiveList(This, _, archiveList, data, dataSize);
+	const size_t originalSplitCount = archiveList->m_ArchiveSizes.size();
 
-	const auto arlName = *reinterpret_cast<const Hedgehog::Base::CSharedString*>(archiveList.get() + 1);
+	const auto exData = reinterpret_cast<ArchiveListEx*>(archiveList.get() + 1);
 
-	const size_t sepIndex = arlName.find_last_of("\\/");
-	const size_t dotIndex = arlName.find('.', sepIndex + 1);
+	const size_t sepIndex = exData->name.find_last_of("\\/");
+	const size_t dotIndex = exData->name.find('.', sepIndex + 1);
 
 	// Setup name (ARL name without extension)
 	char name[0x400];
-	const size_t nameSize = std::min(arlName.size(), dotIndex);
+	const size_t nameSize = std::min(exData->name.size(), dotIndex);
 
-	strncpy(name, arlName.data(), nameSize);
+	strncpy(name, exData->name.data(), nameSize);
 	name[nameSize] = '\0';
 
 	// Setup append ARL name
 	char appendArlName[0x400];
 	const size_t appendNameSize = nameSize + 1;
 
-	strncpy(appendArlName, arlName.data(), sepIndex + 1);
+	strncpy(appendArlName, exData->name.data(), sepIndex + 1);
 	appendArlName[sepIndex + 1] = '+';
-	strncpy(appendArlName + sepIndex + 2, arlName.data() + sepIndex + 1, std::min(arlName.size(), dotIndex - sepIndex - 1));
+	strncpy(appendArlName + sepIndex + 2, exData->name.data() + sepIndex + 1, std::min(exData->name.size(), dotIndex - sepIndex - 1));
 	strcpy(appendArlName + appendNameSize, ".arl");
 
 	// Collect ARL files from mods
@@ -133,12 +140,20 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 			for (size_t i = curSplitCount; i < archiveList->m_ArchiveSizes.size(); i++)
 			{
 				sprintf(name + nameSize, ".ar.%02d", i);
-				sprintf(appendArPath + (*it).path.size() - 1, ".%02d", i - curSplitCount); // .arl -> .ar.%02d
+				sprintf(appendArPath + (*it).path.size() - 1, ".%02d", archiveList->m_ArchiveSizes.size() - i - 1); // .arl -> .ar.%02d
 
 				g_binder->BindFile(name, appendArPath, (*it).bind.priority);
 			}
 		}
 	}
+
+	exData->appendCount = archiveList->m_ArchiveSizes.size() - originalSplitCount; // Going to be used for the mid-asm hooks below
+}
+
+static uint32_t __stdcall transformSplitIndex(uint32_t index, Hedgehog::Database::CArchiveList* archiveList)
+{
+	const auto exData = reinterpret_cast<const ArchiveListEx*>(archiveList + 1);
+	return index < exData->appendCount ? (archiveList->m_ArchiveSizes.size() - index - 1) : (index - exData->appendCount);
 }
 
 static uint32_t arNameSprintfSerialMidAsmHookReturnAddr = 0x69ABDF;
@@ -147,9 +162,10 @@ static void __declspec(naked) arNameSprintfSerialMidAsmHook()
 {
     __asm
 	{
-		mov eax, [esp + 0x144 - 0x128] // Split count
-		sub eax, edi // Split index
-		dec eax
+		// Split index
+		push [esp + 0x144 - 0x118]
+		push edi
+		call transformSplitIndex
 		push eax
 
 		push [ebx] // File path
@@ -169,9 +185,13 @@ static void __declspec(naked) arNameSprintfAsyncMidAsmHook()
 {
 	__asm
 	{
-		mov eax, [esp + 0x9E8 - 0x9C4] // Split count
-		sub eax, [esp + 0x9E8 - 0x9CC] // Split index
-		dec eax
+		// Split index
+		mov ecx, [esp + 0x9E8 - 0x9C8]
+		mov eax, [esi + 0x1D0]
+		lea eax, [eax + ecx * 8]
+		push [eax]
+		push [esp + 0x9EC - 0x9CC]
+		call transformSplitIndex
 		push eax
 
 		// File path
@@ -237,9 +257,12 @@ namespace bb
 {
 	void InitWork()
 	{
+		static constexpr size_t ARCHIVE_LIST_NEW_BYTE_SIZE = 
+			sizeof(Hedgehog::Database::CArchiveList) + sizeof(ArchiveListEx);
+
 		// Increase CArchiveList memory size for char pointer
-		WRITE_MEMORY(0x69C317, uint8_t, 0x2C); // Serial
-		WRITE_MEMORY(0x6A7DCD, uint8_t, 0x2C); // Async
+		WRITE_MEMORY(0x69C317, uint8_t, ARCHIVE_LIST_NEW_BYTE_SIZE); // Serial
+		WRITE_MEMORY(0x6A7DCD, uint8_t, ARCHIVE_LIST_NEW_BYTE_SIZE); // Async
 
 		// Store archive list name in extra space
 		WRITE_JUMP(0x69C32F, archiveListMakeSerialMidAsmHook);
