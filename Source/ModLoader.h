@@ -6,6 +6,11 @@ struct MLUpdateInfo
 	void* device;
 };
 
+#define ML_STRINGIFY(X) #X
+#define ML_XSTRINGIFY(X) ML_STRINGIFY(X)
+
+#define ML_API_EXPORT_NAME GetModLoaderAPI
+
 #define ML_ENVAR_NAME "MODLOADER_NAME"
 #define ML_ENVAR_VERSION "MODLOADER_VERSION"
 #define ML_ENVAR_HOST_MODULE "MODLOADER_HOST_MODULE"
@@ -19,6 +24,13 @@ struct MLUpdateInfo
 
 #define ML_LOG_CATEGORY_GENERAL 0
 #define ML_LOG_CATEGORY_CRIWARE 1
+
+#define ML_PROPERTY_TYPE_ID 0
+#define ML_PROPERTY_TYPE_TITLE 1
+#define ML_PROPERTY_TYPE_HMODULE 2
+#define ML_PROPERTY_TYPE_INDEX 3
+#define ML_PROPERTY_TYPE_CALLER 4
+#define ML_PROPERTY_TYPE_COUNT 5
 
 #define ML_MOD_PRIORITY_MAX 0
 
@@ -92,11 +104,14 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(const Mod_t*, FindMod, const char* id);
 	DECLARE_API_FUNC(void, SendMessageImm, const Mod_t* mod, size_t id, void* data);
 	DECLARE_API_FUNC(void, SendMessageToLoader, size_t id, void* data);
-	DECLARE_API_FUNC(int, BindFile, const char* path, const char* destination, int priority);
-	DECLARE_API_FUNC(int, BindDirectory, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(size_t, SetPriority, const Mod_t* mod, size_t priority);
+	DECLARE_API_FUNC(int, BindFile, const Mod_t* mod, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(int, BindFileDirectory, const Mod_t* mod, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(int, BindFileEx, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(int, BindDirectoryEx, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(const Mod_t*, FindModEx, const void* data, int property_type);
 	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
-	DECLARE_API_FUNC(size_t, SetPriority, const Mod_t* mod, size_t priority);
 };
 
 #undef DECLARE_API_FUNC
@@ -107,6 +122,48 @@ struct FilterModArguments_t
 	const Mod_t* self;
 	bool handled{};
 };
+
+#ifdef WIN32
+
+inline HMODULE GetModLoaderHModule()
+{
+	static HMODULE mod = nullptr;
+	if (!mod)
+	{
+		char path[MAX_PATH];
+		path[0] = '\0';
+
+		if (GetEnvironmentVariableA(ML_ENVAR_HOST_MODULE, path, MAX_PATH) != 0)
+		{
+			mod = GetModuleHandleA(path);
+		}
+	}
+	return mod;
+}
+
+#ifdef MODLOADER_IMPLEMENTATION
+extern "C" __declspec(dllexport) const ModLoaderAPI_t* ML_API ML_API_EXPORT_NAME();
+#else
+inline const ModLoaderAPI_t* ML_API_EXPORT_NAME()
+{
+	static const ModLoaderAPI_t* api = nullptr;
+	if (!api)
+	{
+		HMODULE mod = GetModLoaderHModule();
+		if (mod)
+		{
+			const ModLoaderAPI_t*(*callback)() = (const ModLoaderAPI_t*(*)())GetProcAddress(mod, ML_XSTRINGIFY(ML_API_EXPORT_NAME));
+			if (callback)
+			{
+				api = callback();
+			}
+		}
+	}
+	return api;
+}
+#endif
+
+#endif
 
 #ifdef MODLOADER_IMPLEMENTATION
 #define MODLOADER_CONFIG_NAME "he1ml.ini"

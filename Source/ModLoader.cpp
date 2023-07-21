@@ -161,7 +161,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->RaiseEvent("PreInit", &info);
 		mods[i]->GetEvents("OnFrame", update_handlers);
 	}
-	
+
 	std::ranges::sort(mod_handles, [](const auto& a, const auto& b) { return a->Priority < b->Priority; });
 	for (size_t i = 0; i < mod_handles.size(); i++)
 	{
@@ -353,14 +353,75 @@ void ML_API ModLoader_SendMessageToLoader(size_t id, void* data)
 	g_loader->ProcessMessage(id, data);
 }
 
-int ML_API ModLoader_BindFile(const char* path, const char* destination, int priority)
+int ML_API ModLoader_BindFile(const Mod_t* mod, const char* path, const char* destination, int priority)
+{
+	const auto* impl = static_cast<Mod*>(mod->pImpl);
+	return impl->BindFile(path, destination, priority);
+}
+
+int ML_API ModLoader_BindDirectory(const Mod_t* mod, const char* path, const char* destination, int priority)
+{
+	const auto* impl = static_cast<Mod*>(mod->pImpl);
+	return impl->BindFile(path, destination, priority);
+}
+
+int ML_API ModLoader_BindFileEx(const char* path, const char* destination, int priority)
 {
 	return g_binder->BindFile(path, destination, priority);
 }
 
-int ML_API ModLoader_BindDirectory(const char* path, const char* destination, int priority)
+int ML_API ModLoader_BindDirectoryEx(const char* path, const char* destination, int priority)
 {
 	return g_binder->BindDirectory(path, destination, priority);
+}
+
+const Mod_t* ML_API ModLoader_FindModEx(const void* data, int type)
+{
+	std::function<bool(Mod*, const void*)> selector{};
+	if (type >= ML_PROPERTY_TYPE_COUNT)
+	{
+		return nullptr;
+	}
+
+	if (type == ML_PROPERTY_TYPE_ID)
+	{
+		selector = [](Mod* mod, const void* data) { return _stricmp(mod->id.c_str(), static_cast<const char*>(data)) == 0; };
+	}
+	else if (type == ML_PROPERTY_TYPE_TITLE)
+	{
+		selector = [](Mod* mod, const void* data) { return _stricmp(mod->title.c_str(), static_cast<const char*>(data)) == 0; };
+	}
+	else if (type == ML_PROPERTY_TYPE_HMODULE)
+	{
+		selector = [](Mod* mod, const void* data) { return std::ranges::find(mod->modules, (HMODULE)data) != mod->modules.end(); };
+	}
+	else if (type == ML_PROPERTY_TYPE_INDEX)
+	{
+		return g_loader->mod_handles[reinterpret_cast<size_t>(data)].get();
+	}
+	else if (type == ML_PROPERTY_TYPE_CALLER)
+	{
+		HMODULE module{};
+		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, static_cast<LPCSTR>(_ReturnAddress()), &module))
+		{
+			return nullptr;
+		}
+
+		return ModLoader_FindModEx(module, ML_PROPERTY_TYPE_HMODULE);
+	}
+
+	if (selector != nullptr)
+	{
+		for (const auto& mod : g_loader->mod_handles)
+		{
+			if (selector(static_cast<Mod*>(mod->pImpl), data))
+			{
+				return mod.get();
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 void ML_API ModLoader_Log(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)
@@ -404,6 +465,11 @@ size_t ML_API ModLoader_SetPriority(const Mod_t* mod, size_t priority)
 
 CMN_LOADER_DEFINE_API_EXPORT
 
+extern "C" __declspec(dllexport) const ModLoaderAPI_t * ML_API ML_API_EXPORT_NAME()
+{
+	return &g_ml_api;
+}
+
 ModLoaderAPI_t g_ml_api
 {
 	ModLoader_GetVersion,
@@ -411,9 +477,12 @@ ModLoaderAPI_t g_ml_api
 	ModLoader_FindMod,
 	ModLoader_SendMessageImm,
 	ModLoader_SendMessageToLoader,
+	ModLoader_SetPriority,
 	ModLoader_BindFile,
 	ModLoader_BindDirectory,
+	ModLoader_BindFileEx,
+	ModLoader_BindDirectoryEx,
+	ModLoader_FindModEx,
 	ModLoader_Log,
 	ModLoader_SetSaveFile,
-	ModLoader_SetPriority
 };

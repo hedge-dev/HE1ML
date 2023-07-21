@@ -20,6 +20,7 @@ public:
 	std::vector<ModMessageProc_t*> msg_processors;
 	std::vector<CpkAdvancedConfig> cpk_configs;
 	ModLoader* loader;
+	int bind_priority = 0;
 
 	Mod(ModLoader* in_loader) : loader(in_loader) {}
 	bool Load(const std::string& path);
@@ -28,4 +29,6 @@ public:
 	void RaiseEvent(const char* name, void* params) const;
 	int GetEvents(const char* name, std::vector<ModEvent_t*>& out) const;
 	void SendMessageImm(size_t id, void* data) const;
+	int BindFile(const char* source, const char* destination, int priority = 0) const;
+	int BindDirectory(const char* source, const char* destination, int priority = 0) const;
 };

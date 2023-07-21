@@ -101,19 +101,19 @@ void Mod::LoadAdvancedCpk(const char* path)
 	cpk_configs.emplace_back(path);
 }
 
-void Mod::Init(int bind_priority)
+void Mod::Init(int in_bind_priority)
 {
-	const auto bindPriority = (bind_priority * 0x10000) + include_paths.size();
+	bind_priority = (in_bind_priority * 0x10000) + include_paths.size();
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
-			loader->binder->BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), bindPriority);
-			loader->binder->BindDirectory("work/", (root / includePath / "work").string().c_str(), bindPriority);
+			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
+			BindDirectory("work/", (root / includePath / "work").string().c_str());
 
 		case eGameID_SonicLostWorld:
-			loader->binder->BindDirectory("movie/", (root / includePath / "movie").string().c_str(), bindPriority);
+			BindDirectory("movie/", (root / includePath / "movie").string().c_str());
 			break;
 
 		default:
@@ -131,7 +131,7 @@ void Mod::Init(int bind_priority)
 		}
 
 		config.Parse(reinterpret_cast<char*>(file->memory));
-		config.Process(*loader->binder, path.parent_path(), bindPriority);
+		config.Process(*loader->binder, path.parent_path(), bind_priority);
 	}
 }
 
@@ -169,4 +169,14 @@ void Mod::SendMessageImm(size_t id, void* data) const
 	{
 		processor(id, data);
 	}
+}
+
+int Mod::BindFile(const char* source, const char* destination, int priority) const
+{
+	return loader->binder->BindFile(source, destination, bind_priority + priority);
+}
+
+int Mod::BindDirectory(const char* source, const char* destination, int priority) const
+{
+	return loader->binder->BindDirectory(source, destination, bind_priority + priority);
 }
