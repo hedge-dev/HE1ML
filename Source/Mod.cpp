@@ -104,21 +104,25 @@ void Mod::LoadAdvancedCpk(const char* path)
 void Mod::Init(int in_bind_priority)
 {
 	bind_priority = (in_bind_priority * 0x10000) + include_paths.size();
+	
+	int i = 0;
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
-			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str());
-			BindDirectory("work/", (root / includePath / "work").string().c_str());
+			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), i);
+			BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
 
 		case eGameID_SonicLostWorld:
-			BindDirectory("movie/", (root / includePath / "movie").string().c_str());
+			BindDirectory("movie/", (root / includePath / "movie").string().c_str(), i);
 			break;
 
 		default:
 			break;
 		}
+
+		i++;
 	}
 
 	for (auto& config : cpk_configs)
