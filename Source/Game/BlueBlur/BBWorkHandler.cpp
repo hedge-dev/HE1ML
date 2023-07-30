@@ -93,6 +93,7 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 	uint32_t dataSize)
 {
 	originalCDatabaseLoaderLoadArchiveList(This, _, archiveList, data, dataSize);
+
 	const size_t originalSplitCount = archiveList->m_ArchiveSizes.size();
 
 	const auto exData = reinterpret_cast<ArchiveListEx*>(archiveList.get() + 1);
@@ -148,6 +149,7 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 	}
 
 	exData->appendCount = archiveList->m_ArchiveSizes.size() - originalSplitCount; // Going to be used for the mid-asm hooks below
+	archiveList->m_Loaded = true;
 }
 
 static uint32_t __stdcall transformSplitIndex(uint32_t index, Hedgehog::Database::CArchiveList* archiveList)
@@ -267,6 +269,9 @@ namespace bb
 		// Store archive list name in extra space
 		WRITE_JUMP(0x69C32F, archiveListMakeSerialMidAsmHook);
 		WRITE_JUMP(0x6A7DE7, archiveListMakeAsyncMidAsmHook);
+
+		// Stop LoadArchiveList from setting Loaded to true, we'll do it ourselves
+		WRITE_NOP(0x0069B6E0, 0x04);
 
 		// Load append ARLs and append ARs as extra splits to original AR
 		INSTALL_HOOK(CDatabaseLoaderLoadArchiveList);
