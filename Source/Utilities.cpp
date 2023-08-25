@@ -2,37 +2,6 @@
 #include "Utilities.h"
 
 std::unordered_set<std::string> g_string_symbols{};
-void Buffer::free()
-{
-	if (flags & 1)
-	{
-		delete[] memory;
-		memory = nullptr;
-		size = 0;
-		flags &= ~1;
-	}
-}
-
-void Buffer::resize(size_t in_size)
-{
-	if (in_size < size)
-	{
-		return;
-	}
-
-	auto* new_memory = new uint8_t[in_size];
-	memcpy(new_memory, memory, size);
-	free();
-
-	memory = new_memory;
-	size = in_size;
-	flags |= 1;
-}
-
-Buffer::~Buffer()
-{
-	free();
-}
 
 HMODULE LoadSystemLibrary(const char* name)
 {
@@ -55,31 +24,25 @@ const char* make_string_symbol(const std::string_view& str)
 	return g_string_symbols.insert(std::string(str)).first->c_str();
 }
 
-Buffer* make_buffer(size_t size)
+std::optional<Buffer> read_file(const std::string& path, bool add_null_terminator = false)
 {
-	return new Buffer(size);
+	const HANDLE hFile = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
+	if (hFile != INVALID_HANDLE_VALUE) {
+		auto file_size = static_cast<size_t>(GetFileSize(hFile, nullptr));
+		if (file_size != 0) {
+			auto buffer = Buffer(add_null_terminator ? file_size + 1 : file_size);
+			if (ReadFile(hFile, buffer.as_mut_ptr(), file_size, nullptr, nullptr)) {
+				if (add_null_terminator) {
+					buffer.as_mut_ptr()[file_size] = 0;
+				}
+				return std::move(buffer);
+			}
+		}
+		CloseHandle(hFile);
+	}
+	return 0;
 }
 
-Buffer* read_file(const char* path, bool text_file)
-{
-	const HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
-	if (hFile == INVALID_HANDLE_VALUE)
-	{
-		return nullptr;
-	}
-
-	auto size = GetFileSize(hFile, nullptr);
-	auto* buffer = make_buffer(text_file ? size + 1 : size);
-	ReadFile(hFile, buffer->memory, buffer->size, nullptr, nullptr);
-	CloseHandle(hFile);
-
-	if (text_file)
-	{
-		buffer->memory[buffer->size - 1] = 0;
-	}
-
-	return buffer;
-}
 
 bool file_exists(const char* path)
 {
@@ -270,7 +233,7 @@ std::string strformat(const std::string_view& text)
 			else if (block.type == 'X')
 			{
 				const auto data = fromhexstr(block.string());
-				ss << std::string_view{reinterpret_cast<const char*>(data->memory), data->size};
+				ss << std::string_view{reinterpret_cast<const char*>(data->as_ptr()), data->len()};
 			}
 			else
 			{

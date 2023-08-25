@@ -4,35 +4,67 @@
 template<typename T, typename TCompare = std::greater<T>>
 using priority_queue = std::multiset<T, TCompare>;
 
-class Buffer
-{
-	uint8_t flags{};
-
-public:
+class Buffer {
+private:
 	size_t size{};
 	uint8_t* memory{};
-
-	Buffer(size_t in_size)
-	{
-		memory = new uint8_t[in_size];
-		size = in_size;
-		flags |= 1;
+public:
+	inline Buffer(size_t len) {
+		memory = new uint8_t[len]();
+		size = len;
 	}
-
-	Buffer(void* in_memory, size_t in_size, bool owns = false) : flags(owns ? 1 : 0), size(in_size), memory(static_cast<uint8_t*>(in_memory))
-	{
-
+	inline ~Buffer() {
+		if (memory != nullptr) {
+			delete[] memory;
+			memory = nullptr;
+			size = 0;
+		}
 	}
-
-	void free();
-	void resize(size_t in_size);
-	~Buffer();
+	Buffer(const Buffer&) = delete;
+	Buffer& operator=(const Buffer&) = delete;
+	inline Buffer(Buffer&& other) noexcept {
+		memory = other.memory;
+		other.memory = nullptr;
+		size = other.size;
+		other.size = 0;
+	}
+	inline Buffer& operator=(Buffer&& other) noexcept {
+		memory = other.memory;
+		other.memory = nullptr;
+		size = other.size;
+		other.size = 0;
+	}
+	inline uint8_t* as_mut_ptr() {
+		return memory;
+	}
+	inline const uint8_t* as_ptr() const {
+		return memory;
+	}
+	inline size_t len() const {
+		return size;
+	}
+	inline void resize(size_t len) {
+		if (len < size) {
+			size = len;
+		}
+		else {
+			uint8_t* new_memory = new uint8_t[len]();
+			std::memcpy(new_memory, memory, size);
+			delete[] memory;
+			size = len;
+		}
+	}
+	static inline std::pair<uint8_t*, size_t> leak(Buffer&& buf) {
+		auto pair = std::make_pair(buf.memory, buf.size);
+		buf.memory = nullptr;
+		buf.size = 0;
+		return pair;
+	}
 };
 
 HMODULE LoadSystemLibrary(const char* name);
 const char* make_string_symbol(const std::string_view& str);
-Buffer* make_buffer(size_t size);
-Buffer* read_file(const char* path, bool text_file = false);
+std::optional<Buffer> read_file(const std::string& path, bool add_null_terminator = false);
 bool file_exists(const char* path);
 bool file_exists(const std::filesystem::path& path);
 std::string strtrim(const char* str, const char* s = nullptr);
@@ -164,7 +196,7 @@ constexpr std::string hexstr(const std::string_view& str)
 inline std::unique_ptr<Buffer> fromhexstr(const std::string_view& str)
 {
 	auto buffer = std::make_unique<Buffer>(str.size() / 2);
-	fromhexstr(str, buffer->memory, buffer->size);
+	fromhexstr(str, buffer->as_mut_ptr(), buffer->len());
 
 	return buffer;
 }

@@ -13,15 +13,15 @@ bool Mod::Load(const std::string& path)
 	this->path = path;
 	root = modPath.parent_path().string();
 
-	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
+	const auto file = read_file(path, true);
 
-	if (file == nullptr)
+	if (!file.has_value())
 	{
 		LOG("Failed to load mod: %s", path.c_str());
 		return false;
 	}
 
-	const Ini ini{ reinterpret_cast<char*>(file->memory), nullptr };
+	const Ini ini{ reinterpret_cast<const char*>(file->as_ptr()), nullptr };
 	const auto mainSection = ini["Main"];
 	const auto descSection = ini["Desc"];
 	const auto cpksSection = ini["CPKs"];
@@ -128,13 +128,13 @@ void Mod::Init(int in_bind_priority)
 	for (auto& config : cpk_configs)
 	{
 		const auto path = (root / config.name);
-		const auto file = std::unique_ptr<Buffer>(read_file(path.string().c_str(), true));
-		if (file == nullptr)
+		const auto file = read_file(path.string(), true);
+		if (!file.has_value())
 		{
 			continue;
 		}
 
-		config.Parse(reinterpret_cast<char*>(file->memory));
+		config.Parse(reinterpret_cast<const char*>(file->as_ptr()));
 		config.Process(*loader->binder, path.parent_path(), bind_priority);
 	}
 }

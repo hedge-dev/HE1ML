@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <unordered_map>
+#include <optional>
 
 #include <CommonLoader.h>
 

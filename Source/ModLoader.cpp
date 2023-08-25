@@ -62,9 +62,9 @@ void ModLoader::Init(const char* configPath)
 
 	const bool isLegacy = stricmp(path_filename(configPath), MODLOADER_LEGACY_CONFIG_NAME) == 0;
 
-	const auto file = std::unique_ptr<Buffer>(read_file(config_path.c_str(), true));
+	const auto file = read_file(config_path, true);
 
-	const Ini ini{ reinterpret_cast<char*>(file != nullptr ? file->memory : nullptr) };
+	const Ini ini{ reinterpret_cast<const char*>(file.has_value() ? file->as_ptr() : nullptr)};
 	const auto cpkSection = ini[isLegacy ? "CPKREDIR" : "HEDGEHOG"];
 
 	if (strcmp(cpkSection["Enabled"], "0") == 0)
@@ -123,14 +123,14 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	codesPath.append("\\Codes.dll");
 	CommonLoader::LoadAssembly(codesPath.c_str());
 
-	const auto file = std::unique_ptr<Buffer>(read_file(database_path.c_str(), true));
-	if (!file)
+	const auto file = read_file(database_path, true);
+	if (!file.has_value())
 	{
 		return;
 	}
 
 	char buf[32];
-	const auto ini = Ini{ reinterpret_cast<char*>(file->memory) };
+	const auto ini = Ini{ reinterpret_cast<const char*>(file->as_ptr()) };
 	const auto mainSection = ini["Main"];
 	const auto modsSection = ini["Mods"];
 
