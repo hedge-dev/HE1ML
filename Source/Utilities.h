@@ -33,6 +33,7 @@ public:
 		other.memory = nullptr;
 		size = other.size;
 		other.size = 0;
+		return *this;
 	}
 	inline uint8_t* as_mut_ptr() {
 		return memory;
