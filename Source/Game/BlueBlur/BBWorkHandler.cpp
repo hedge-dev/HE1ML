@@ -40,8 +40,9 @@ void DecompressCAB(boost::shared_ptr<uint8_t[]>& data, size_t& size)
 	decompressor->Update();
 }
 
-struct ArchiveListEx
+class ArchiveListEx : public Hedgehog::Database::CArchiveList
 {
+public:
 	Hedgehog::Base::CSharedString name;
 	uint32_t appendCount;
 };
@@ -88,7 +89,7 @@ static void __declspec(naked) archiveListMakeAsyncMidAsmHook()
 HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 	Hedgehog::Database::CDatabaseLoader* This,
 	void* _,
-	const boost::shared_ptr<Hedgehog::Database::CArchiveList>& archiveList,
+	const boost::shared_ptr<ArchiveListEx>& archiveList,
 	const uint8_t* data,
 	uint32_t dataSize)
 {
@@ -96,25 +97,23 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 
 	const size_t originalSplitCount = archiveList->m_ArchiveSizes.size();
 
-	const auto exData = reinterpret_cast<ArchiveListEx*>(archiveList.get() + 1);
-
-	const size_t sepIndex = exData->name.find_last_of("\\/");
-	const size_t dotIndex = exData->name.find('.', sepIndex + 1);
+	const size_t sepIndex = archiveList->name.find_last_of("\\/");
+	const size_t dotIndex = archiveList->name.find('.', sepIndex + 1);
 
 	// Setup name (ARL name without extension)
 	char name[0x400];
-	const size_t nameSize = std::min(exData->name.size(), dotIndex);
+	const size_t nameSize = std::min(archiveList->name.size(), dotIndex);
 
-	strncpy(name, exData->name.data(), nameSize);
+	strncpy(name, archiveList->name.data(), nameSize);
 	name[nameSize] = '\0';
 
 	// Setup append ARL name
 	char appendArlName[0x400];
 	const size_t appendNameSize = nameSize + 1;
 
-	strncpy(appendArlName, exData->name.data(), sepIndex + 1);
+	strncpy(appendArlName, archiveList->name.data(), sepIndex + 1);
 	appendArlName[sepIndex + 1] = '+';
-	strncpy(appendArlName + sepIndex + 2, exData->name.data() + sepIndex + 1, std::min(exData->name.size(), dotIndex - sepIndex - 1));
+	strncpy(appendArlName + sepIndex + 2, archiveList->name.data() + sepIndex + 1, std::min(archiveList->name.size(), dotIndex - sepIndex - 1));
 	strcpy(appendArlName + appendNameSize, ".arl");
 
 	// Collect ARL files from mods
@@ -148,14 +147,13 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 		}
 	}
 
-	exData->appendCount = archiveList->m_ArchiveSizes.size() - originalSplitCount; // Going to be used for the mid-asm hooks below
+	archiveList->appendCount = archiveList->m_ArchiveSizes.size() - originalSplitCount; // Going to be used for the mid-asm hooks below
 	archiveList->m_Loaded = true;
 }
 
-static uint32_t __stdcall transformSplitIndex(uint32_t index, Hedgehog::Database::CArchiveList* archiveList)
+static uint32_t __stdcall transformSplitIndex(uint32_t index, ArchiveListEx* archiveList)
 {
-	const auto exData = reinterpret_cast<const ArchiveListEx*>(archiveList + 1);
-	return index < exData->appendCount ? (archiveList->m_ArchiveSizes.size() - index - 1) : (index - exData->appendCount);
+	return index < archiveList->appendCount ? (archiveList->m_ArchiveSizes.size() - index - 1) : (index - archiveList->appendCount);
 }
 
 static uint32_t arNameSprintfSerialMidAsmHookReturnAddr = 0x69ABDF;
@@ -255,16 +253,63 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchive, 0x69AB10,
 		loadImmediate);
 }
 
+HOOK(void, __cdecl, MakeVertexShaderDataV2, 0x742D20,
+	Hedgehog::Mirage::CVertexShaderData* vertexShaderData,
+	const uint8_t* data,
+	const Hedgehog::Mirage::CMirageDatabaseWrapper& mirageDatabaseWrapper,
+	Hedgehog::Mirage::CRenderingInfrastructure* renderingInfrastructure)
+{
+	if (!vertexShaderData->IsMadeOne())
+		originalMakeVertexShaderDataV2(vertexShaderData, data, mirageDatabaseWrapper, renderingInfrastructure);
+}
+
+HOOK(void, __cdecl, MakeVertexShaderDataV1, 0x742CA0,
+	Hedgehog::Mirage::CVertexShaderData* vertexShaderData,
+	const uint8_t* data,
+	const Hedgehog::Mirage::CMirageDatabaseWrapper& mirageDatabaseWrapper,
+	Hedgehog::Mirage::CRenderingInfrastructure* renderingInfrastructure)
+{
+	if (!vertexShaderData->IsMadeOne())
+		originalMakeVertexShaderDataV1(vertexShaderData, data, mirageDatabaseWrapper, renderingInfrastructure);
+}
+
+HOOK(void, __cdecl, MakeVertexShaderDataV0, 0x742C00,
+	Hedgehog::Mirage::CVertexShaderData* vertexShaderData,
+	const uint8_t* data,
+	const Hedgehog::Mirage::CMirageDatabaseWrapper& mirageDatabaseWrapper,
+	Hedgehog::Mirage::CRenderingInfrastructure* renderingInfrastructure)
+{
+	if (!vertexShaderData->IsMadeOne())
+		originalMakeVertexShaderDataV0(vertexShaderData, data, mirageDatabaseWrapper, renderingInfrastructure);
+}
+
+HOOK(void, __stdcall, MakeVertexShaderCodeData, 0x724740,
+	Hedgehog::Mirage::CVertexShaderCodeData* vertexShaderCodeData,
+	const uint8_t* data,
+	size_t dataSize,
+	Hedgehog::Mirage::CRenderingInfrastructure* renderingInfrastructure)
+{
+	if (!vertexShaderCodeData->IsMadeOne())
+		originalMakeVertexShaderCodeData(vertexShaderCodeData, data, dataSize, renderingInfrastructure);
+}
+
+HOOK(void, __stdcall, MakePixelShaderCodeData, 0x724610,
+	Hedgehog::Mirage::CPixelShaderCodeData* pixelShaderCodeData,
+	const uint8_t* data,
+	size_t dataSize,
+	Hedgehog::Mirage::CRenderingInfrastructure* renderingInfrastructure)
+{
+	if (!pixelShaderCodeData->IsMadeOne())
+		originalMakePixelShaderCodeData(pixelShaderCodeData, data, dataSize, renderingInfrastructure);
+}
+
 namespace bb
 {
 	void InitWork()
 	{
-		static constexpr size_t ARCHIVE_LIST_NEW_BYTE_SIZE = 
-			sizeof(Hedgehog::Database::CArchiveList) + sizeof(ArchiveListEx);
-
 		// Increase CArchiveList memory size for char pointer
-		WRITE_MEMORY(0x69C317, uint8_t, ARCHIVE_LIST_NEW_BYTE_SIZE); // Serial
-		WRITE_MEMORY(0x6A7DCD, uint8_t, ARCHIVE_LIST_NEW_BYTE_SIZE); // Async
+		WRITE_MEMORY(0x69C317, uint8_t, sizeof(ArchiveListEx)); // Serial
+		WRITE_MEMORY(0x6A7DCD, uint8_t, sizeof(ArchiveListEx)); // Async
 
 		// Store archive list name in extra space
 		WRITE_JUMP(0x69C32F, archiveListMakeSerialMidAsmHook);
@@ -285,5 +330,13 @@ namespace bb
 
 		// Load work folder for serial archives
 		INSTALL_HOOK(CDatabaseLoaderLoadArchive);
+
+		// Fix database data make functions that don't check for IsMadeOne
+		// and cause priority to be reversed due to always overriding data
+		INSTALL_HOOK(MakeVertexShaderDataV2);
+		INSTALL_HOOK(MakeVertexShaderDataV1);
+		INSTALL_HOOK(MakeVertexShaderDataV0);
+		INSTALL_HOOK(MakeVertexShaderCodeData);
+		INSTALL_HOOK(MakePixelShaderCodeData);
 	}
 }
