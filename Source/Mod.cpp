@@ -113,8 +113,12 @@ void Mod::Init(int in_bind_priority)
 		case eGameID_SonicGenerations:
 			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), i);
 			BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
+			goto bindMovie;
 
 		case eGameID_SonicLostWorld:
+			BindDirectory("dlc/", (root / includePath / "dlc").string().c_str(), i);
+
+			bindMovie:
 			BindDirectory("movie/", (root / includePath / "movie").string().c_str(), i);
 			break;
 
