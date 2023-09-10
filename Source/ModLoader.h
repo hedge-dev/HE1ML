@@ -106,7 +106,7 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(void, SendMessageToLoader, size_t id, void* data);
 	DECLARE_API_FUNC(size_t, SetPriority, const Mod_t* mod, size_t priority);
 	DECLARE_API_FUNC(int, BindFile, const Mod_t* mod, const char* path, const char* destination, int priority);
-	DECLARE_API_FUNC(int, BindFileDirectory, const Mod_t* mod, const char* path, const char* destination, int priority);
+	DECLARE_API_FUNC(int, BindDirectory, const Mod_t* mod, const char* path, const char* destination, int priority);
 	DECLARE_API_FUNC(int, BindFileEx, const char* path, const char* destination, int priority);
 	DECLARE_API_FUNC(int, BindDirectoryEx, const char* path, const char* destination, int priority);
 	DECLARE_API_FUNC(const Mod_t*, FindModEx, const void* data, int property_type);

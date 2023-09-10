@@ -29,6 +29,25 @@ public:
 	~Buffer();
 };
 
+template<typename TChar>
+struct path_constants
+{
+	constexpr static TChar dir_separator = static_cast<TChar>('/');
+	constexpr static TChar alt_dir_separator = static_cast<TChar>('\\');
+	constexpr static TChar volume_separator = static_cast<TChar>(':');
+
+	constexpr static bool is_valid_drive(TChar c)
+	{
+		return ((c | 0x20) - static_cast<TChar>('a')) <= static_cast<TChar>('z' - 'a');
+	}
+};
+
+template<typename TChar>
+constexpr bool is_dir_separator(TChar c)
+{
+	return c == path_constants<TChar>::dir_separator || c == path_constants<TChar>::alt_dir_separator;
+}
+
 HMODULE LoadSystemLibrary(const char* name);
 const char* make_string_symbol(const std::string_view& str);
 Buffer* make_buffer(size_t size);
@@ -43,6 +62,13 @@ const char* path_filename(const char* str);
 std::string_view path_dirname(const std::string_view& str);
 bool path_rmfilename(char* str);
 std::string strformat(const std::string_view& text);
+
+template<typename TChar>
+constexpr bool path_is_rooted(const TChar* path)
+{
+	auto size = std::char_traits<TChar>::length(path);
+	return (size >= 1 && is_dir_separator(path[0])) || (size >= 2 && path_constants<TChar>::is_valid_drive(path[0]) && path[1] == path_constants<TChar>::volume_separator);
+}
 
 template<bool FromStart = true>
 std::string_view path_noextension(const std::string_view name)

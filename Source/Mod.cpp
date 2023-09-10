@@ -181,10 +181,28 @@ void Mod::SendMessageImm(size_t id, void* data) const
 
 int Mod::BindFile(const char* source, const char* destination, int priority) const
 {
+	const auto rooted = path_is_rooted<char>(destination);
+	if (!rooted)
+	{
+		const auto new_path = (root / destination).string();
+		destination = new_path.c_str();
+
+		return loader->binder->BindFile(source, destination, bind_priority + priority);
+	}
+
 	return loader->binder->BindFile(source, destination, bind_priority + priority);
 }
 
 int Mod::BindDirectory(const char* source, const char* destination, int priority) const
 {
+	const auto rooted = path_is_rooted<char>(destination);
+	if (!rooted)
+	{
+		const auto new_path = (root / destination).string();
+		destination = new_path.c_str();
+
+		return loader->binder->BindDirectory(source, destination, bind_priority + priority);
+	}
+
 	return loader->binder->BindDirectory(source, destination, bind_priority + priority);
 }
