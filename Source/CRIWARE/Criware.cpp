@@ -41,7 +41,7 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 		g_cri->criErr_SetCallback(criErr_Callback);
 	}
 
-	LOG("BindCpk: %s", path);
+	LOG("Binding CPK: %s", path);
 	ML_HANDLE_CRI_HOOK(ML_CRIWARE_HOOK_PRE_BINDCPK, CriFsBindCpkHook_t, bndrhn, srcbndrhn, path, work, worksize, bndrid);
 
 	std::vector<char> path_buffer{ path, path + strlen(path) + 1 };
