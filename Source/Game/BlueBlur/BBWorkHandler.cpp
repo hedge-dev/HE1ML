@@ -217,6 +217,7 @@ HOOK(void, __fastcall, CDirectoryD3D9GetFiles, 0x667160,
 	void*)
 {
 	const auto binds = g_binder->CollectBindings(path.c_str());
+
 	for (const auto& bind : binds)
 	{
 		for (const auto& entry : std::filesystem::directory_iterator(bind.path))
@@ -251,6 +252,26 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchive, 0x69AB10,
 		archiveParam,
 		loadAllData,
 		loadImmediate);
+}
+
+static void __fastcall loadHashArchiveMidAsmHook(Hedgehog::Base::CSharedString& workDirPath, void* _, uintptr_t pathHolder)
+{
+	new (&workDirPath) Hedgehog::Base::CSharedString("work/"); // needs to be constructed since that's what we are overriding
+	workDirPath += *reinterpret_cast<const Hedgehog::Base::CSharedString*>(pathHolder + 0x20); // dir name
+	workDirPath += "#";
+	workDirPath += *reinterpret_cast<const Hedgehog::Base::CSharedString*>(pathHolder + 0x24); // file name
+}
+
+static uint32_t loadHashArchiveTrampolineReturnAddr = 0xD47CE7;
+
+static void __declspec(naked) loadHashArchiveTrampoline()
+{
+    __asm
+	{
+		push esi
+		call loadHashArchiveMidAsmHook
+		jmp[loadHashArchiveTrampolineReturnAddr]
+	}
 }
 
 HOOK(void, __cdecl, MakeVertexShaderDataV2, 0x742D20,
@@ -330,6 +351,9 @@ namespace bb
 
 		// Load work folder for serial archives
 		INSTALL_HOOK(CDatabaseLoaderLoadArchive);
+
+		// Load work folder for async # archives
+		WRITE_JUMP(0xD47CE2, loadHashArchiveTrampoline);
 
 		// Fix database data make functions that don't check for IsMadeOne
 		// and cause priority to be reversed due to always overriding data
