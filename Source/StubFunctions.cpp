@@ -1,5 +1,5 @@
 #include <cassert>
-#define MAKE_STUB(NAME) void __declspec(dllexport) NAME() { assert(false && "Attempted to call unloaded function: " #NAME); }
+#define MAKE_STUB(NAME) void __declspec(dllexport) NAME() { MessageBoxA(nullptr, "Attempted to call unloaded function: " #NAME, "HE1ML", MB_ICONERROR); }
 
 extern "C"
 {
@@ -31,7 +31,8 @@ void ResolveStubMethods(void* module)
 #define MAP(MODULE, ADDRESS) ((char*)(MODULE) + (unsigned)(ADDRESS))
 
 	HMODULE executingModule{};
-	assert(GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, reinterpret_cast<LPCSTR>(ResolveStubMethods), &executingModule));
+	const BOOL result = GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, reinterpret_cast<LPCSTR>(ResolveStubMethods), &executingModule);
+	assert(result);
 
 	const auto* header = reinterpret_cast<IMAGE_DOS_HEADER*>(executingModule);
 	const auto* ntHeader = reinterpret_cast<IMAGE_NT_HEADERS*>(MAP(executingModule, header->e_lfanew));
