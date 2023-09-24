@@ -49,19 +49,16 @@ HOOK(CriError, CRIAPI, crifsbinder_BindCpkInternal, 0x007D35F4, CriFsBinderHn bn
 	path_buffer.resize(strlen(path_buffer.data()));
 	
 	g_cpk_binds.emplace(path_buffer.data());
-	for (int i = 0; i < g_loader->mods.size(); i++)
-	{
-		const auto& mod = g_loader->mods[i];
-		auto base = 0x10000 * (g_loader->mods.size() - i);
 
+	for (const auto& mod : g_loader->mods)
+	{
 		int d = 0;
 		for (const auto& dir : std::views::reverse(mod->include_paths))
 		{
-			std::filesystem::path fsPath{ mod->root };
-			fsPath /= dir;
+			std::filesystem::path fsPath{ dir };
 
-			g_loader->binder->BindDirectory(".", (fsPath / path_buffer.data()).string().c_str(), base + d);
-			g_loader->binder->BindDirectory(".", (fsPath / path_filename(path_buffer.data())).string().c_str(), base + d);
+			mod->BindDirectory(".", (fsPath / path_buffer.data()).string().c_str(), d);
+			mod->BindDirectory(".", (fsPath / path_filename(path_buffer.data())).string().c_str(), d);
 
 			++d;
 		}
