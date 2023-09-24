@@ -15,6 +15,7 @@ namespace app::dev
 			return GetBaseImpl()->OpenFile(path);
 		}
 
+		LOG("Loading save file: %s", g_loader->save_file.c_str());
 		return GetBaseImpl()->OpenFile(g_loader->save_file.c_str());
 	}
 
@@ -25,6 +26,7 @@ namespace app::dev
 			return GetBaseImpl()->CreateFile(path);
 		}
 
+		LOG("Writing save file: %s", g_loader->save_file.c_str());
 		return GetBaseImpl()->CreateFile(g_loader->save_file.c_str());
 	}
 

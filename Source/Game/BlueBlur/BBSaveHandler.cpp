@@ -33,6 +33,7 @@ HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsSave, 0x00E7A320, void* ecx, 
 		return false;
 	}
 
+	LOG("Writing save file: %s", g_loader->save_file.c_str());
 	WriteFile(hFile, buffer, bufsize, nullptr, nullptr);
 	CloseHandle(hFile);
 
@@ -68,6 +69,7 @@ HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsDelete, 0x00E7A1F0, void* ecx
 	bool deleted{};
 	if (g_loader->save_redirection && !g_loader->save_file.empty())
 	{
+		LOG("Deleting save file: %s", g_loader->save_file.c_str());
 		deleted = DeleteFileA(g_loader->save_file.c_str()) != 0;
 	}
 
