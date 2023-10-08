@@ -118,13 +118,13 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 
 	// Collect ARL files from mods
 	const auto bindings = g_binder->CollectBindings(appendArlName);
-
+	
 	// Iterate in reverse so priority is still correct when loading splits in reverse.
-	for (auto it = bindings.rbegin(); it != bindings.rend(); ++it)
+	for (const auto& binding : std::views::reverse(bindings))
 	{
 		const size_t curSplitCount = archiveList->m_ArchiveSizes.size();
 
-		const auto buffer = std::unique_ptr<Buffer>{ read_file((*it).path.c_str(), false) };
+		const auto buffer = std::unique_ptr<Buffer>{ read_file(binding.path.c_str(), false) };
 		if (buffer != nullptr)
 		{
 			auto shared_buffer = boost::shared_ptr<uint8_t[]>{ buffer->memory };
@@ -135,14 +135,14 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 			originalCDatabaseLoaderLoadArchiveList(This, _, archiveList, shared_buffer.get(), buffer_size);
 
 			char appendArPath[0x400];
-			strcpy(appendArPath, (*it).path.c_str());
+			strcpy(appendArPath, binding.path.c_str());
 
 			for (size_t i = curSplitCount; i < archiveList->m_ArchiveSizes.size(); i++)
 			{
 				sprintf(name + nameSize, ".ar.%02d", i);
-				sprintf(appendArPath + (*it).path.size() - 1, ".%02d", archiveList->m_ArchiveSizes.size() - i - 1); // .arl -> .ar.%02d
+				sprintf(appendArPath + binding.path.size() - 1, ".%02d", archiveList->m_ArchiveSizes.size() - i - 1); // .arl -> .ar.%02d
 
-				g_binder->BindFile(name, appendArPath, (*it).bind.priority);
+				g_binder->BindFile(name, appendArPath, binding.bind.priority);
 			}
 		}
 	}

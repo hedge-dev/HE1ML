@@ -54,7 +54,13 @@ void FileBinder::Binding::Query(const char* file, const std::function<bool(const
 			return;
 		}
 
-		callback(binds.begin()->path.string(), *binds.begin());
+		for (const auto& bind : binds)
+		{
+			if (!callback(bind.path.string(), bind))
+			{
+				return;
+			}
+		}
 	}
 }
 

@@ -62,6 +62,16 @@ public:
 		{
 			return bind;
 		}
+
+		bool operator<(const BindResult& other) const
+		{
+			return bind < other.bind;
+		}
+
+		bool operator>(const BindResult& other) const
+		{
+			return bind > other.bind;
+		}
 	};
 
 	std::vector<std::optional<Binding>> bindings{};
