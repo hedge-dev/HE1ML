@@ -57,7 +57,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\LWAPI;$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -80,7 +80,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Dependencies\LWAPI;$(ProjectDir)..\Dependencies\BlueBlur;$(ProjectDir)..\Dependencies\CommonLoader\CommonLoader;$(ProjectDir)..\Dependencies\Detours\include;$(ProjectDir)..\Dependencies;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>Pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>Pch.h</ForcedIncludeFiles>
@@ -142,6 +142,7 @@
     <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
     <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWWorkHandler.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="FileBinder.cpp" />
     <ClCompile Include="Game.cpp" />

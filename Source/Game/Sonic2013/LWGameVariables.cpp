@@ -5,6 +5,8 @@
 namespace lw
 {
 	void InitSaveRedir();
+	void InitWork();
+
 	CriErrCbFunc& g_err_callback = *reinterpret_cast<CriErrCbFunc*>(ASLR(0x00FF8D54));
 	void CRIAPI criErr_SetCallback(CriErrCbFunc cbf)
 	{
@@ -69,6 +71,7 @@ namespace lw
 		if (key == eGameEvent_Init)
 		{
 			InitSaveRedir();
+			InitWork();
 			return true;
 		}
 		return false;
