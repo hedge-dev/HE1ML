@@ -13,7 +13,7 @@ bool Mod::Load(const std::string& path)
 	this->path = path;
 	root = modPath.parent_path().string();
 
-	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
+	const auto file = read_file(path.c_str(), true);
 
 	if (file == nullptr)
 	{
@@ -132,7 +132,7 @@ void Mod::Init(int in_bind_priority)
 	for (auto& config : cpk_configs)
 	{
 		const auto path = (root / config.name);
-		const auto file = std::unique_ptr<Buffer>(read_file(path.string().c_str(), true));
+		const auto file = read_file(path.string().c_str(), true);
 		if (file == nullptr)
 		{
 			continue;

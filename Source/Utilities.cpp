@@ -55,12 +55,12 @@ const char* make_string_symbol(const std::string_view& str)
 	return g_string_symbols.insert(std::string(str)).first->c_str();
 }
 
-Buffer* make_buffer(size_t size)
+std::unique_ptr<Buffer> make_buffer(size_t size)
 {
-	return new Buffer(size);
+	return std::make_unique<Buffer>(size);
 }
 
-Buffer* read_file(const char* path, bool text_file)
+std::unique_ptr<Buffer> read_file(const char* path, bool text_file)
 {
 	const HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
 	if (hFile == INVALID_HANDLE_VALUE)
@@ -68,8 +68,8 @@ Buffer* read_file(const char* path, bool text_file)
 		return nullptr;
 	}
 
-	auto size = GetFileSize(hFile, nullptr);
-	auto* buffer = make_buffer(text_file ? size + 1 : size);
+	const auto size = GetFileSize(hFile, nullptr);
+	auto buffer = make_buffer(text_file ? size + 1 : size);
 	ReadFile(hFile, buffer->memory, buffer->size, nullptr, nullptr);
 	CloseHandle(hFile);
 
@@ -78,7 +78,7 @@ Buffer* read_file(const char* path, bool text_file)
 		buffer->memory[buffer->size - 1] = 0;
 	}
 
-	return buffer;
+	return std::move(buffer);
 }
 
 bool file_exists(const char* path)

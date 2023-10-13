@@ -124,7 +124,7 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchiveList, 0x69B360,
 	{
 		const size_t curSplitCount = archiveList->m_ArchiveSizes.size();
 
-		const auto buffer = std::unique_ptr<Buffer>{ read_file(binding.path.c_str(), false) };
+		const auto buffer = read_file(binding.path.c_str(), false);
 		if (buffer != nullptr)
 		{
 			auto shared_buffer = boost::shared_ptr<uint8_t[]>{ buffer->memory };
