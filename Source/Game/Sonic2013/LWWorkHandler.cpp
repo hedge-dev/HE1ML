@@ -1,4 +1,4 @@
-#include "Globals.h"
+#include "LWPackfile.h"
 #include <Sonic2013/Sonic2013.h>
 #include <queue>
 
@@ -23,6 +23,9 @@ namespace lw
 
 	void LoaderWorker()
 	{
+		// NOTE: We reuse the builder to reuse its memory.
+		pacx::Builder builder;
+
 		SetThreadDescription(GetCurrentThread(), L"" __FUNCTION__);
 		hh::base::InitializeWorkerThread();
 
@@ -30,10 +33,63 @@ namespace lw
 		{
 			if (!requests.empty())
 			{
-				std::lock_guard guard{ loader_mtx };
-				const auto& request = requests.front();
-				auto handle = request->m_pHandle;
+				// Get the current request off of the queue.
+				app::fnd::FileLoader::LoadInfo* request;
 
+				{
+					std::lock_guard guard{ loader_mtx };
+					request = requests.front();
+					requests.pop();
+				}
+
+				const auto handle = request->m_pHandle.get();
+
+				// Collect pac files from mods
+				char appendPathBuf[128];
+				const auto appendPacFilePathLen = std::strlen(handle->m_Path);
+				std::size_t pacNamePos = 0;
+
+				std::memcpy(appendPathBuf, handle->m_Path, appendPacFilePathLen + 1);
+
+				// Go backwards from the end of the append pac file path
+				// until we find the position of the file name.
+				for (std::size_t i = appendPacFilePathLen; i != 0; --i)
+				{
+					if (appendPathBuf[i] == '\\' || appendPathBuf[i] == '/')
+					{
+						pacNamePos = (i + 1);
+						break;
+					}
+				}
+
+				appendPathBuf[pacNamePos] = '+';
+				std::strcpy(appendPathBuf + pacNamePos + 1, handle->m_Name);
+
+				// Build a new packfile if there are any append packfiles.
+				const auto bindings = g_binder->CollectBindings(appendPathBuf);
+
+				if (!bindings.empty() &&
+					// TODO: Please replace this temporary code with a better way to detect splits!!!
+					appendPacFilePathLen > 3 &&
+					(handle->m_Path.c_str())[appendPacFilePathLen - 1] == 'c' &&
+					(handle->m_Path.c_str())[appendPacFilePathLen - 2] == 'a' &&
+					(handle->m_Path.c_str())[appendPacFilePathLen - 3] == 'p'
+					)
+				{
+					// Start building a new packfile.
+					builder.Start(handle->m_pBuffer, handle->m_pBufferAllocator);
+
+					// Iterate in reverse so priority is still correct when loading splits in reverse.
+					for (const auto& binding : std::views::reverse(bindings))
+					{
+						builder.MergeWithAppend(binding.path.c_str());
+					}
+
+					// Finish building the new packfile, and modify the existing
+					// request so that it refers to this new packfile instead.
+					handle->m_pBuffer = builder.Finish(handle->m_BufferSize);
+				}
+				
 #if 0 // Buffer override experiment
 				auto old_buffer = handle->m_pBuffer;
 				handle->m_pBuffer = handle->m_pBufferAllocator->Alloc(handle->m_BufferSize, 16);
@@ -46,8 +102,9 @@ namespace lw
 
 				handle->m_BufferFlags &= ~1;
 #endif
+
+				// Execute the resource job.
 				app::fnd::FileLoader::GetInstance()->ResourceJobMTExec(request);
-				requests.pop();
 			}
 
 			Sleep(1);
@@ -175,10 +232,31 @@ namespace lw
 		return 0;
 	}
 
+	HOOK(void, __fastcall, Packfile_Cleanup, ASLR(0x00C19090), hh::ut::PackFile* pac)
+	{
+		// If this packfile has a pointer to a linked list node, cleanup all of the nodes in the list.
+		if (pac->ref().m_Status & pacx::PACX_HEADER_STATUS_HE1ML_HAS_NEXT_NODE)
+		{
+			auto curNode = reinterpret_cast<pacx::LinkedListNode*>(pac->ref().m_Size);
+
+			do
+			{
+				const auto next = curNode->next;
+				curNode->allocator->Free(curNode);
+				curNode = next;
+			}
+			while (curNode);
+		}
+
+		// Cleanup the packfile.
+		originalPackfile_Cleanup(pac);
+	}
+
 	void InitWork()
 	{
 		WRITE_CALL(ASLR(0x0049177E), FileLoader_StartResourceJob);
 		INSTALL_HOOK(Application_InitializeMain);
 		INSTALL_HOOK(GameModeStartUp_LoadResidentFile);
+		INSTALL_HOOK(Packfile_Cleanup);
 	}
 }
