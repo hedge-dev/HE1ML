@@ -60,6 +60,52 @@ namespace lw::pacx
 		status |= PACX_HEADER_STATUS_HE1ML_HAS_NEXT_NODE;
 	}
 
+	std::string_view& Builder::addOrGetNewTypeName(std::string_view newTypeName)
+	{
+		for (auto& existingNewTypeName : newTypeNames)
+		{
+			if (existingNewTypeName == newTypeName)
+			{
+				return existingNewTypeName;
+			}
+		}
+
+		return newTypeNames.emplace_back(std::move(newTypeName));
+	}
+
+	const Builder::NewFileInfo* Builder::getNextFileInfoWithNamePtr(
+		const NewFileInfo* begin, const NewFileInfo* end,
+		const char* typeNamePtr) const
+	{
+		for (; begin != end; ++begin)
+		{
+			// NOTE: We check the actual pointer itself instead of doing a string comparison!
+			// This is much faster, but we have to be careful!
+			// This is only safe because of the very specific way in which we always
+			// add the pointers and check their values, ensuring that they will always
+			// either match, or represent two different strings.
+			if (begin->typeName == typeNamePtr)
+			{
+				return begin;
+			}
+		}
+
+		return nullptr;
+	}
+
+	auto Builder::allocPacBuffer(std::size_t pacSize) const ->
+		std::unique_ptr<LinkedListNode, PacBufferDeleter>
+	{
+		std::unique_ptr<LinkedListNode, PacBufferDeleter> pacBuffer(
+			static_cast<LinkedListNode*>(allocator->Alloc(sizeof(LinkedListNode) + pacSize, 16))
+		);
+
+		pacBuffer->next = nullptr;
+		pacBuffer->allocator = allocator;
+
+		return pacBuffer;
+	}
+
 	auto Builder::loadPac(const char* filePath) ->
 		std::unique_ptr<LinkedListNode, PacBufferDeleter>
 	{
@@ -77,15 +123,8 @@ namespace lw::pacx
 
 		const auto size = GetFileSize(hFile.get(), nullptr);
 
-		// Setup linked list node.
-		std::unique_ptr<LinkedListNode, PacBufferDeleter> pacBuffer(
-			static_cast<LinkedListNode*>(allocator->Alloc(sizeof(LinkedListNode) + size, 1))
-		);
-
-		pacBuffer->next = nullptr;
-		pacBuffer->allocator = allocator;
-
 		// Read packfile.
+		auto pacBuffer = allocPacBuffer(size);
 		ReadFile(hFile.get(), pacBuffer->data(), size, nullptr, nullptr);
 		hFile.reset(); // NOTE: This closes the file.
 
@@ -113,7 +152,7 @@ namespace lw::pacx
 	{
 		for (const auto pacBuffer : pacBuffers)
 		{
-			allocator->Free(pacBuffer);
+			pacBuffer->allocator->Free(pacBuffer);
 		}
 
 		pacBuffers.clear();
@@ -134,6 +173,7 @@ namespace lw::pacx
 	{
 		// Load append packfile.
 		auto aPacBuffer = loadPac(appendPacFilePath.c_str());
+		if (!aPacBuffer) return;
 
 		// Replace all corresponding data pointers in original pac with data pointers from append pac.
 		// NOTE: a = append, o = original.
@@ -190,18 +230,26 @@ namespace lw::pacx
 					}
 					else
 					{
-						++newFileCount;
+						// This is a new file not present in the original pac; store info on it for later.
+						newFiles.emplace_back(oTypeNode->name, &aFileNode);
 					}
 				}
 			}
-			else
+			else if (aFiles.count > 0) // NOTE: We don't count empty types as new types.
 			{
-				++newTypeCount;
+				// This is a new type not present in the original pac; store its name for later.
+				const auto newTypeName = addOrGetNewTypeName(aTypeNode.name).data();
+
+				// Store info on the new file names for later.
+				for (const auto& aFileNode : aFiles)
+				{
+					newFiles.emplace_back(newTypeName, &aFileNode);
+				}
 			}
 		}
 
 		// Exit early and discard the append pac if there are no new or replaced files (the append pac has no files).
-		if (newFileCount == 0 && replacedFileCount == 0)
+		if (newFiles.empty() && replacedFileCount == 0)
 		{
 			return;
 		}
@@ -231,10 +279,6 @@ namespace lw::pacx
 				}
 			}
 
-			// Set append pac remaining split count to the number of splits we have to load.
-			// NOTE: This is necessary, as the game's Packfile::Import function reads this value.
-			aPac->remainingSplitCount = static_cast<unsigned char>(aPacTotalSplitCount);
-
 			// Load and import the append pac's splits.
 			for (const auto aFiles : aPacCurSplitTableFiles)
 			{
@@ -249,6 +293,8 @@ namespace lw::pacx
 
 						// Load the append pac split.
 						auto aSplitPacBuffer = loadPac(splitPathBuf);
+						if (!aSplitPacBuffer) continue;
+
 						const auto aSplitPac = aSplitPacBuffer.get()->data();
 
 						// Add split packfile to our builder's list of packfiles so that it doesn't get freed until later.
@@ -263,20 +309,51 @@ namespace lw::pacx
 
 						for (const auto& aProxyEntry : *aProxyTable)
 						{
+							// Find the type in the append split pac.
 							const auto oTypeNode = oTypes.find(aProxyEntry.type);
 							const auto aSplitTypeNode = aSplitTypes.find(aProxyEntry.type);
 
-							if (oTypeNode != oTypes.end() && aSplitTypeNode != aSplitTypes.end())
+							if (aSplitTypeNode == aSplitTypes.end())
+							{
+								continue;
+							}
+
+							// Find the file in the append split pac.
+							const auto& aSplitFiles = *aSplitTypeNode->data;
+							const auto aSplitFileNode = aSplitFiles.find(aProxyEntry.name);
+
+							if (aSplitFileNode == aSplitFiles.end())
+							{
+								continue;
+							}
+
+							// Replace the file data pointer in the original pac with the
+							// data pointer in the append split pac, unless the file isn't
+							// present in the original pac (it is a new file).
+							if (oTypeNode != oTypes.end())
 							{
 								const auto& oFiles = *oTypeNode->data;
 								const auto oFileNode = oFiles.find(aProxyEntry.name);
-								const auto& aSplitFiles = *aSplitTypeNode->data;
-								const auto aSplitFileNode = aSplitFiles.find(aProxyEntry.name);
 
-								if (oFileNode != oFiles.end() && aSplitFileNode != aSplitFiles.end())
+								if (oFileNode != oFiles.end())
 								{
-									// Replace data pointer in original pac with data pointer in split pac.
 									oFileNode->data = aSplitFileNode->data;
+									continue; // Skip the following code.
+								}
+							}
+
+							// If the file wasn't present in the original pac, replace the
+							// file data pointer in the append pac instead.
+							const auto aTypeNode = aTypes.find(aProxyEntry.type);
+
+							if (aTypeNode != aTypes.end())
+							{
+								const auto& aFiles = *aTypeNode->data;
+								const auto aFileNode = aFiles.find(aProxyEntry.name);
+
+								if (aFileNode != aFiles.end())
+								{
+									aFileNode->data = aSplitFileNode->data;
 								}
 							}
 						}
@@ -286,31 +363,137 @@ namespace lw::pacx
 		}
 	}
 
-	Header* Builder::Finish(std::size_t& finalPacSize)
+	void Builder::Finish()
 	{
-		// Build a final packfile which we can pass to the game.
-		Header* finalPac;
+		// Build extra data and assign it to the original packfile, if necessary.
+		const auto finalPac = origPac;
 
-		if (newFileCount == 0)
+		if (!newFiles.empty())
 		{
-			// If there are no new files, we don't need to build a new packfile!
-			// Just return the original packfile, which we've already modified.
-			finalPac = origPac;
-			finalPacSize = origPac->fileSize;
+			// Calculate total type and file counts.
+			// TODO: Repeat for each data block in the file.
+			auto oDataBlock = static_cast<DataBlock*>(origPac->FirstBlock());
+			auto& oTypes = oDataBlock->Types();
 
+			const auto totalTypeCount = (oTypes.count + newTypeNames.size());
+			auto totalFileCount = newFiles.size();
+
+			for (const auto& oTypeNode : oTypes)
+			{
+				const auto& oFiles = *oTypeNode.data;
+				totalFileCount += oFiles.count;
+			}
+
+			// Calculate extra pac data size.
+			// NOTE: This may be larger than the size that is actually required, due
+			// to us not accounting for duplicate type/file names, but it's fine;
+			// the amount of memory potentially wasted is not very large.
+			const auto exPacDataSize = (
+				((sizeof(TypeDicNode) + sizeof(FileDic)) * totalTypeCount) +
+				(sizeof(FileDicNode) * totalFileCount)
+			);
+
+			auto exPacBuffer = allocPacBuffer(exPacDataSize);
+
+			if (!pacBuffers.empty())
+			{
+				exPacBuffer->next = pacBuffers[0];
+			}
+
+			// Chain origPac to exPacBuffer
+			origPac->ChainToNode(exPacBuffer.get());
+
+			// Copy type nodes from original pac into extra pac data.
+			// NOTE: We are going to remap the pointers later as necessary.
+			const auto exTypeNodes = exPacBuffer->data<TypeDicNode>();
+
+			std::memcpy(exTypeNodes, oTypes.data, sizeof(TypeDicNode) * oTypes.count);
+
+			// Remap original pac type nodes pointer to point to extra pac data.
+			oTypes.data = exTypeNodes;
+			auto& exTypes = oTypes; // NOTE: This is just to avoid confusion when reading this code.
+
+			// Setup new type dictionaries.
+			for (const auto& newTypeName : newTypeNames)
+			{
+				auto& exTypeNode = exTypes[exTypes.count++];
+
+				exTypeNode.name = newTypeName.data();
+				exTypeNode.data = nullptr; // NOTE: We'll fill this in later.
+			}
+
+			// Setup new file dictionaries/file nodes.
+			auto exFiles = reinterpret_cast<FileDic*>(exTypes.end());
+			const auto newFilesEnd = (newFiles.data() + newFiles.size());
+
+			for (auto& exTypeNode : exTypes)
+			{
+				// If there are no new files of this type, just re-use the original file dictionary.
+				auto newFileInfo = getNextFileInfoWithNamePtr(
+					newFiles.data(), newFilesEnd, exTypeNode.name);
+
+				if (!newFileInfo)
+				{
+					continue;
+				}
+
+				// Otherwise, setup a new file dictionary.
+				const auto exFileNodes = reinterpret_cast<FileDicNode*>(exFiles + 1);
+
+				exFiles->count = 0;
+				exFiles->data = exFileNodes;
+
+				// Copy original file nodes into the new file dictionary, if any.
+				if (exTypeNode.data)
+				{
+					const auto& oFiles = *exTypeNode.data;
+
+					std::memcpy(exFileNodes, oFiles.data, sizeof(FileDicNode) * oFiles.count);
+					exFiles->count += oFiles.count;
+				}
+
+				exTypeNode.data = exFiles;
+
+				// Copy new file nodes into the new file dictionary.
+				do
+				{
+					auto exFileNode = exFiles->find(newFileInfo->dicNode->name);
+
+					if (exFileNode == exFiles->end())
+					{
+						++exFiles->count;
+					}
+
+					*exFileNode = *newFileInfo->dicNode;
+
+					newFileInfo = getNextFileInfoWithNamePtr(
+						newFileInfo + 1, newFilesEnd, exTypeNode.name);
+				}
+				while (newFileInfo);
+
+				// Increase exFiles pointer for next iteration.
+				exFiles = reinterpret_cast<FileDic*>(exFiles->end());
+			}
+
+			// Release exPacBuffer memory.
+			// NOTE: We do not have to add it to the pac list for it to
+			// be freed, since origPac has already been chained to it.
+			exPacBuffer.release();
+		}
+
+		// If there are no new files, we don't need to build any extra data!
+		// Just use the original packfile, which we've already modified.
+		else
+		{
 			if (!pacBuffers.empty())
 			{
 				origPac->ChainToNode(pacBuffers[0]);
 			}
 		}
-		else
-		{
-			// TODO: Build new packfile that points to origPac data.
-			finalPac = nullptr;
-			__debugbreak();
-		}
 
 		// Reset for future iterations.
+		newTypeNames.clear();
+		newFiles.clear();
 
 		// NOTE: We purposefully call this instead of freePacBuffers()
 		// because we do *not* want to actually call Free on each pac
@@ -321,18 +504,15 @@ namespace lw::pacx
 		allocator = nullptr;
 		origPac = nullptr;
 		prevNode = nullptr;
-		newTypeCount = 0;
 		replacedFileCount = 0;
-		newFileCount = 0;
-
-		return finalPac;
 	}
 
 	Builder::Builder()
 	{
+		newTypeNames.reserve(30);
+		newFiles.reserve(1000);
 		// NOTE: There's never actually more than 1 split table in real files.
 		aPacCurSplitTableFiles.reserve(1);
-
 		pacBuffers.reserve(100);
 	}
 

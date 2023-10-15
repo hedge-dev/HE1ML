@@ -87,7 +87,7 @@ namespace lw
 
 					// Finish building the new packfile, and modify the existing
 					// request so that it refers to this new packfile instead.
-					handle->m_pBuffer = builder.Finish(handle->m_BufferSize);
+					builder.Finish();
 				}
 				
 #if 0 // Buffer override experiment

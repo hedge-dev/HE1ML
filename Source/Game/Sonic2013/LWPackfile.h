@@ -99,7 +99,7 @@ namespace lw::pacx
 	{
 		using value_type = T;
 
-		char* name;
+		const char* name;
 		T* data;
 
 		bool operator==(const char* name) const
@@ -285,14 +285,16 @@ namespace lw::pacx
 		LinkedListNode* next;
 		csl::fnd::IAllocator* allocator;
 
-		inline const Header* data() const noexcept
+		template<typename T = Header>
+		inline const T* data() const noexcept
 		{
-			return reinterpret_cast<const Header*>(this + 1);
+			return reinterpret_cast<const T*>(this + 1);
 		}
 
-		inline Header* data() noexcept
+		template<typename T = Header>
+		inline T* data() noexcept
 		{
-			return reinterpret_cast<Header*>(this + 1);
+			return reinterpret_cast<T*>(this + 1);
 		}
 	};
 
@@ -314,14 +316,33 @@ namespace lw::pacx
 			}
 		};
 
+		struct NewFileInfo
+		{
+			const char* typeName;
+			const FileDicNode* dicNode;
+
+			inline NewFileInfo(const char* typeName, const FileDicNode* dicNode) noexcept
+				: typeName(typeName)
+				, dicNode(dicNode)
+			{}
+		};
+
+		std::vector<std::string_view> newTypeNames;
+		std::vector<NewFileInfo> newFiles;
 		std::vector<const FileDic*> aPacCurSplitTableFiles;
 		std::vector<LinkedListNode*> pacBuffers;
 		csl::fnd::IAllocator* allocator = nullptr;
 		Header* origPac = nullptr;
 		LinkedListNode* prevNode = nullptr;
-		std::size_t newTypeCount = 0;
 		std::size_t replacedFileCount = 0;
-		std::size_t newFileCount = 0;
+
+		std::string_view& addOrGetNewTypeName(std::string_view newTypeName);
+
+		const NewFileInfo* getNextFileInfoWithNamePtr(
+			const NewFileInfo* begin, const NewFileInfo* end,
+			const char* typeNamePtr) const;
+		
+		std::unique_ptr<LinkedListNode, PacBufferDeleter> allocPacBuffer(std::size_t pacSize) const;
 
 		std::unique_ptr<LinkedListNode, PacBufferDeleter> loadPac(const char* filePath);
 
@@ -334,7 +355,7 @@ namespace lw::pacx
 
 		void MergeWithAppend(const std::string& appendPacFilePath);
 
-		Header* Finish(std::size_t& finalPacSize);
+		void Finish();
 
 		Builder();
 
