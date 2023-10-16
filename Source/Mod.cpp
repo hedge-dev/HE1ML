@@ -108,11 +108,12 @@ void Mod::Init(int in_bind_priority)
 	int i = 0;
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
+		BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
+
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
 			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), i);
-			BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
 			goto bindMovie;
 
 		case eGameID_SonicLostWorld:
