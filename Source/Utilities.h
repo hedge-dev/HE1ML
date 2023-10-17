@@ -62,6 +62,7 @@ const char* path_filename(const char* str);
 std::string_view path_dirname(const std::string_view& str);
 bool path_rmfilename(char* str);
 std::string strformat(const std::string_view& text);
+std::string tostr(const wchar_t* str);
 
 template<typename TChar>
 constexpr bool path_is_rooted(const TChar* path)

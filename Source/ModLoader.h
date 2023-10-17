@@ -15,7 +15,7 @@ struct MLUpdateInfo
 #define ML_ENVAR_VERSION "MODLOADER_VERSION"
 #define ML_ENVAR_HOST_MODULE "MODLOADER_HOST_MODULE"
 
-#define ML_API_VERSION 1
+#define ML_API_VERSION 0x101000
 #define ML_MSG_ADD_LOG_HANDLER 1
 
 #define ML_LOG_LEVEL_INFO 0
@@ -112,6 +112,7 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(const Mod_t*, FindModEx, const void* data, int property_type);
 	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
 	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
+	DECLARE_API_FUNC(bool, LoadExternalModule, const char* path);
 };
 
 #undef DECLARE_API_FUNC
@@ -204,11 +205,15 @@ public:
 	MLUpdateInfo update_info{};
 
 	std::vector<std::pair<void*, LogEvent_t*>> log_handlers{};
+	Mod sys_mod{ this };
+	Mod_t sys_mod_handle{ "ModLoader.System", nullptr, "modloader.system", 0, &sys_mod};
 
+	void BasicInit();
 	void Init(const char* configPath);
 	void LoadDatabase(const std::string& databasePath, bool append = false);
 	bool RegisterMod(const std::string& path);
 	void BroadcastMessageImm(size_t id, void* data) const;
+	bool LoadExternalModule(const char* path, bool raise_init = false);
 	void OnUpdate();
 	void ProcessMessage(size_t id, void* data);
 	void FilterMods();

@@ -294,3 +294,18 @@ std::string strformat(const std::string_view& text)
 
 	return ss.str();
 }
+
+std::string tostr(const wchar_t* str)
+{
+	const int len = WideCharToMultiByte(CP_UTF8, 0, str, -1, nullptr, 0, nullptr, nullptr);
+
+	if (len == 0)
+	{
+		return "";
+	}
+
+	std::string utf8(len, 0);
+	WideCharToMultiByte(CP_UTF8, 0, str, -1, utf8.data(), len, nullptr, nullptr);
+
+	return utf8;
+}

@@ -27,6 +27,7 @@ public:
 	void LoadAdvancedCpk(const char* path);
 	void Init(int bind_priority = 0);
 	void RaiseEvent(const char* name, void* params) const;
+	void RaiseEvent(size_t mod_idx, const char* name, void* params) const;
 	int GetEvents(const char* name, std::vector<ModEvent_t*>& out) const;
 	void SendMessageImm(size_t id, void* data) const;
 	int BindFile(const char* source, const char* destination, int priority = 0) const;
