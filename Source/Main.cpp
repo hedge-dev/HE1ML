@@ -19,18 +19,60 @@ void Init()
 	loader.Init(MODLOADER_LEGACY_CONFIG_NAME);
 }
 
+#define MOVE_ARG_NEXT() i++; if (i >= argc) break;
+
 HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 {
 	int argc;
 	auto* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
+	loader.BasicInit();
+
 	if (argv)
 	{
 		for (int i = 1; i < argc; i++)
 		{
-			if (_wcsicmp(argv[i], L"-Lcri") == 0)
+			if (_wcsicmp(argv[i], L"-L") == 0)
 			{
-				loader.enable_cri_logs = true;
+				MOVE_ARG_NEXT();
+
+				if (_wcsicmp(argv[i], L"cri") == 0)
+				{
+					loader.enable_cri_logs = true;
+				}
+
+				continue;
+			}
+
+			if (_wcsicmp(argv[i], L"-B") == 0)
+			{
+				MOVE_ARG_NEXT();
+
+				auto arg = tostr(argv[i]);
+				const auto equalIdx = arg.find_first_of('=');
+				if (equalIdx == std::string::npos)
+				{
+					continue;
+				}
+
+				arg[equalIdx] = 0;
+				const auto* target = arg.c_str() + equalIdx + 1;
+				if (file_exists(target))
+				{
+					g_binder->BindFile(arg.c_str(), target, INT_MAX);
+				}
+				else
+				{
+					g_binder->BindDirectory(arg.c_str(), target, INT_MAX);
+				}
+			}
+
+			if (_wcsicmp(argv[i], L"-D") == 0)
+			{
+				MOVE_ARG_NEXT();
+
+				auto arg = tostr(argv[i]);
+				g_loader->LoadExternalModule(arg.c_str(), false);
 			}
 		}
 		LocalFree(argv);

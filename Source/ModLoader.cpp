@@ -30,7 +30,7 @@ void StdOutLogHandler(void* obj, int level, int category, const char* message, s
 	}
 }
 
-void ModLoader::Init(const char* configPath)
+void ModLoader::BasicInit()
 {
 	g_loader = this;
 	g_binder = binder.get();
@@ -56,7 +56,10 @@ void ModLoader::Init(const char* configPath)
 		root_path = pathBuf;
 		root_path.remove_filename();
 	}
+}
 
+void ModLoader::Init(const char* configPath)
+{
 	SetCurrentDirectoryW(root_path.c_str());
 	config_path = configPath;
 
@@ -72,6 +75,9 @@ void ModLoader::Init(const char* configPath)
 		return;
 	}
 
+	sys_mod.id = "modloader.system";
+	sys_mod.title = "ModLoader.System";
+	sys_mod.path = root_path.string();
 	save_redirection = strcmp(cpkSection["EnableSaveFileRedirection"], "0") != 0;
 	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
 	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
@@ -150,7 +156,7 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 	FilterMods();
 
 	v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
-	v0::ModInfo_t info{ &list, nullptr, & g_ml_api };
+	v0::ModInfo_t info{ &list, &sys_mod_handle, &g_ml_api };
 
 	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
@@ -162,13 +168,17 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->GetEvents("OnFrame", update_handlers);
 	}
 
+	info.CurrentMod = &sys_mod_handle;
+	sys_mod.RaiseEvent("PreInit", &info);
+	sys_mod.GetEvents("OnFrame", update_handlers);
+
 	std::ranges::sort(mod_handles, [](const auto& a, const auto& b) { return a->Priority < b->Priority; });
 	for (size_t i = 0; i < mod_handles.size(); i++)
 	{
 		mods[i].release();  // NOLINT(bugprone-unused-return-value)
 		mods[i].reset(static_cast<Mod*>(mod_handles[i]->pImpl));
 	}
-
+	
 	for (size_t i = mods.size() - 1; i != -1; i--)
 	{
 		SetDllDirectoryW(mods[i]->root.c_str());
@@ -179,6 +189,8 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->Init(mods.size() - i);
 	}
 
+	info.CurrentMod = &sys_mod_handle;
+	sys_mod.RaiseEvent("Init", &info);
 	CommonLoader::RaiseInitializers();
 
 	for (size_t i = mods.size() - 1; i != -1; i--)
@@ -189,6 +201,8 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		mods[i]->RaiseEvent("PostInit", &info);
 	}
 
+	info.CurrentMod = &sys_mod_handle;
+	sys_mod.RaiseEvent("PostInit", &info);
 	SetCurrentDirectoryW(root_path.c_str());
 }
 
@@ -218,6 +232,34 @@ void ModLoader::BroadcastMessageImm(size_t id, void* data) const
 	{
 		mod->SendMessageImm(id, data);
 	}
+
+	sys_mod.SendMessageImm(id, data);
+}
+
+bool ModLoader::LoadExternalModule(const char* path, bool raise_init)
+{
+	const auto library = LoadLibraryA(path);
+	if (library == nullptr)
+	{
+		return false;
+	}
+
+	const auto idx = sys_mod.modules.size();
+	sys_mod.modules.push_back(library);
+
+	if (raise_init)
+	{
+		v0::ModList_t list{ reinterpret_cast<const v0::Mod_t**>(mod_handles.data()), reinterpret_cast<const v0::Mod_t**>(mod_handles.data()) + mod_handles.size() };
+		v0::ModInfo_t info{ &list, &sys_mod_handle, &g_ml_api };
+
+		const std::filesystem::path module_path = path;
+		SetCurrentDirectoryW(module_path.parent_path().c_str());
+		sys_mod.RaiseEvent(idx, "Init", &info);
+
+		SetCurrentDirectoryW(root_path.c_str());
+	}
+
+	return true;
 }
 
 void ModLoader::OnUpdate()
@@ -434,6 +476,11 @@ void ML_API ModLoader_SetSaveFile(const char* path)
 	g_loader->SetSaveFile(path);
 }
 
+bool ML_API ModLoader_LoadExternalModule(const char* path)
+{
+	return g_loader->LoadExternalModule(path, true);
+}
+
 size_t ML_API ModLoader_SetPriority(const Mod_t* mod, size_t priority)
 {
 	if (mod == nullptr)
@@ -465,7 +512,7 @@ size_t ML_API ModLoader_SetPriority(const Mod_t* mod, size_t priority)
 
 CMN_LOADER_DEFINE_API_EXPORT
 
-extern "C" __declspec(dllexport) const ModLoaderAPI_t * ML_API ML_API_EXPORT_NAME()
+extern "C" __declspec(dllexport) const ModLoaderAPI_t* ML_API ML_API_EXPORT_NAME()
 {
 	return &g_ml_api;
 }
@@ -485,4 +532,5 @@ ModLoaderAPI_t g_ml_api
 	ModLoader_FindModEx,
 	ModLoader_Log,
 	ModLoader_SetSaveFile,
+	ModLoader_LoadExternalModule
 };

@@ -145,13 +145,18 @@ void Mod::Init(int in_bind_priority)
 
 void Mod::RaiseEvent(const char* name, void* params) const
 {
-	for (auto& module : modules)
+	for (size_t i = 0; i < modules.size(); i++)
 	{
-		auto* pEvent = static_cast<void*>(GetProcAddress(module, name));
-		if (pEvent)
-		{
-			reinterpret_cast<ModEvent_t*>(pEvent)(params);
-		}
+		RaiseEvent(i, name, params);
+	}
+}
+
+void Mod::RaiseEvent(size_t mod_idx, const char* name, void* params) const
+{
+	auto* pEvent = static_cast<void*>(GetProcAddress(modules[mod_idx], name));
+	if (pEvent)
+	{
+		reinterpret_cast<ModEvent_t*>(pEvent)(params);
 	}
 }
 
