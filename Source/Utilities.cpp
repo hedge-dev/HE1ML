@@ -309,3 +309,62 @@ std::string tostr(const wchar_t* str)
 
 	return utf8;
 }
+
+void HandoverProcess(const wchar_t* path)
+{
+	// These variables get inherited
+	SetEnvironmentVariableA(ML_ENVAR_PROCESS_RESTARTED, "1");
+	if (IsDebuggerPresent())
+	{
+		SetEnvironmentVariableA(ML_ENVAR_PROCESS_HAD_DEBUGGER, "1");
+	}
+
+	STARTUPINFOW info{};
+	PROCESS_INFORMATION procInfo{};
+	CreateProcessW(path, GetCommandLineW(), nullptr, nullptr, false, GetPriorityClass(GetCurrentProcess()),
+		nullptr, nullptr, &info, &procInfo);
+
+	ExitProcess(1);
+}
+
+void RestartIfLargeAddressUnaware()
+{
+	wchar_t buffer[4096];
+	const auto host = GetModuleHandle(nullptr);
+	if (CheckLargeAddressAware(host))
+	{
+		return;
+	}
+
+	GetModuleFileNameW(host, buffer, sizeof(buffer));
+	std::filesystem::path hostPath{ buffer };
+	
+	const Win32Handle handle{ OpenFileW(hostPath.c_str()) };
+	hostPath.replace_extension(L".HE1ML_LAA.exe");
+
+	if (GetFileAttributesW(hostPath.c_str()) != INVALID_FILE_ATTRIBUTES)
+	{
+		HandoverProcess(hostPath.c_str());
+		return;
+	}
+
+	if (handle == nullptr)
+	{
+		return;
+	}
+
+	const size_t size{ GetFileSize(handle.get(), nullptr) };
+	auto fileBuffer = std::make_unique<uint8_t[]>(size);
+	ReadFile(handle.get(), fileBuffer.get(), size, nullptr, nullptr);
+	auto* headers = GetNtHeaders(reinterpret_cast<HMODULE>(fileBuffer.get()));
+
+	headers->FileHeader.Characteristics |= IMAGE_FILE_LARGE_ADDRESS_AWARE;
+	headers->OptionalHeader.DllCharacteristics &= ~IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE;
+
+	{
+		const Win32Handle laaHandle{ CreateFileW(hostPath.c_str()) };
+		WriteFile(laaHandle.get(), fileBuffer.get(), size, nullptr, nullptr);
+	}
+
+	HandoverProcess(hostPath.c_str());
+}

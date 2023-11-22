@@ -74,6 +74,11 @@ HOOK(void, WINAPI, tmainCRTStartup, nullptr)
 				auto arg = tostr(argv[i]);
 				g_loader->LoadExternalModule(arg.c_str(), false);
 			}
+
+			if (_wcsicmp(argv[i], L"-LAA") == 0)
+			{
+				g_loader->large_address_aware_requested = true;
+			}
 		}
 		LocalFree(argv);
 	}
