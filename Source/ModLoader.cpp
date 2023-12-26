@@ -363,12 +363,18 @@ void ModLoader::FilterMods()
 		}
 	}
 
-	for (size_t i = 0; i < votes.size(); i++)
-	{
-		if (votes[i] != 0)
+	size_t index = 0;
+
+	for (const auto vote : votes)
+    {
+		if (vote != 0)
 		{
-			mods.erase(i + mods.begin());
-			mod_handles.erase(i + mod_handles.begin());
+			mods.erase(index + mods.begin());
+			mod_handles.erase(index + mod_handles.begin());
+		}
+		else
+		{
+		    ++index;
 		}
 	}
 }
