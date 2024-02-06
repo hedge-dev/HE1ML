@@ -30,6 +30,16 @@ void StdOutLogHandler(void* obj, int level, int category, const char* message, s
 	}
 }
 
+void NotifyHadDebugger()
+{
+	char buffer[16];
+	GetEnvironmentVariableA(ML_ENVAR_PROCESS_HAD_DEBUGGER, buffer, sizeof(buffer));
+	if (strcmp(buffer, "1") == 0 && !IsDebuggerPresent())
+	{
+		MessageBoxA(NULL, "The debugger was detached from the previous instance.\nAttach it again and press OK.", "HE1ML", MB_OK | MB_ICONEXCLAMATION);
+	}
+}
+
 void ModLoader::BasicInit()
 {
 	g_loader = this;
@@ -56,6 +66,8 @@ void ModLoader::BasicInit()
 		root_path = pathBuf;
 		root_path.remove_filename();
 	}
+
+	NotifyHadDebugger();
 }
 
 void ModLoader::Init(const char* configPath)
@@ -81,6 +93,16 @@ void ModLoader::Init(const char* configPath)
 	save_redirection = strcmp(cpkSection["EnableSaveFileRedirection"], "0") != 0;
 	save_read_through = strcmp(cpkSection["SaveFileReadThrough"], "0") != 0;
 	save_file = strtrim(cpkSection["SaveFileFallback"], "\"");
+
+	if (!large_address_aware_requested)
+	{
+		large_address_aware_requested = strlen(cpkSection["EnableLargeAddressAware"]) != 0 && strcmp(cpkSection["EnableLargeAddressAware"], "0") != 0;
+	}
+
+	if (large_address_aware_requested)
+	{
+		RestartIfLargeAddressUnaware();
+	}
 
 #if !defined(DEBUG)
 	if (stricmp(strtrim(cpkSection["LogType"], "\"").c_str(), "console") == 0)
@@ -166,6 +188,11 @@ void ModLoader::LoadDatabase(const std::string& databasePath, bool append)
 		info.CurrentMod = mod_handles[i].get();
 		mods[i]->RaiseEvent("PreInit", &info);
 		mods[i]->GetEvents("OnFrame", update_handlers);
+	}
+
+	if (large_address_aware_requested)
+	{
+		RestartIfLargeAddressUnaware();
 	}
 
 	info.CurrentMod = &sys_mod_handle;
@@ -285,6 +312,11 @@ void ModLoader::ProcessMessage(size_t id, void* data)
 		AddLogger(msg->obj, msg->handler);
 		return;
 	}
+	else if (id == ML_MSG_REQ_LARGE_ADDRESS_AWARE)
+	{
+		large_address_aware_requested = true;
+	}
+
 	Game::Message msg{ id, data };
 	g_game->EventProc(eGameEvent_ProcessMessage, &msg);
 }
@@ -331,12 +363,18 @@ void ModLoader::FilterMods()
 		}
 	}
 
-	for (size_t i = 0; i < votes.size(); i++)
-	{
-		if (votes[i] != 0)
+	size_t index = 0;
+
+	for (const auto vote : votes)
+    {
+		if (vote != 0)
 		{
-			mods.erase(i + mods.begin());
-			mod_handles.erase(i + mod_handles.begin());
+			mods.erase(index + mods.begin());
+			mod_handles.erase(index + mod_handles.begin());
+		}
+		else
+		{
+		    ++index;
 		}
 	}
 }

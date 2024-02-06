@@ -4,6 +4,16 @@
 template<typename T, typename TCompare = std::greater<T>>
 using priority_queue = std::multiset<T, TCompare>;
 
+struct Win32HandleDeleter
+{
+	void operator()(HANDLE hFile)
+	{
+		CloseHandle(hFile);
+	}
+};
+
+typedef std::unique_ptr<void, Win32HandleDeleter> Win32Handle;
+
 class Buffer
 {
 	uint8_t flags{};
@@ -63,6 +73,27 @@ std::string_view path_dirname(const std::string_view& str);
 bool path_rmfilename(char* str);
 std::string strformat(const std::string_view& text);
 std::string tostr(const wchar_t* str);
+void RestartIfLargeAddressUnaware();
+
+inline IMAGE_NT_HEADERS* GetNtHeaders(HMODULE module)
+{
+	return reinterpret_cast<IMAGE_NT_HEADERS*>(reinterpret_cast<size_t>(module) + reinterpret_cast<IMAGE_DOS_HEADER*>(module)->e_lfanew);
+}
+
+inline bool CheckLargeAddressAware(HMODULE module)
+{
+	return !!(GetNtHeaders(module)->FileHeader.Characteristics & IMAGE_FILE_LARGE_ADDRESS_AWARE);
+}
+
+inline HANDLE OpenFileW(const wchar_t* path)
+{
+	return CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+}
+
+inline HANDLE CreateFileW(const wchar_t* path)
+{
+	return CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+}
 
 template<typename TChar>
 constexpr bool path_is_rooted(const TChar* path)

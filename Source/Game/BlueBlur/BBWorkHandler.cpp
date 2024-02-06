@@ -239,10 +239,13 @@ HOOK(void, __fastcall, CDatabaseLoaderLoadArchive, 0x69AB10,
 	bool loadAllData,
 	bool loadImmediate)
 {
+	Hedgehog::Database::SArchiveParam workParam(archiveParam);
+	workParam.Priority += 10;
+
 	This->LoadDirectory(
 		database, 
 		"work/" + archiveName.substr(0, archiveName.find('.', archiveName.find_last_of("\\/") + 1)),
-		archiveParam);
+		workParam);
 
 	originalCDatabaseLoaderLoadArchive(
 		This,

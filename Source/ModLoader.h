@@ -14,9 +14,12 @@ struct MLUpdateInfo
 #define ML_ENVAR_NAME "MODLOADER_NAME"
 #define ML_ENVAR_VERSION "MODLOADER_VERSION"
 #define ML_ENVAR_HOST_MODULE "MODLOADER_HOST_MODULE"
+#define ML_ENVAR_PROCESS_RESTARTED "HE1ML_PROCESS_RESTARTED"
+#define ML_ENVAR_PROCESS_HAD_DEBUGGER "HE1ML_PROCESS_HAD_DEBUGGER"
 
 #define ML_API_VERSION 0x101000
 #define ML_MSG_ADD_LOG_HANDLER 1
+#define ML_MSG_REQ_LARGE_ADDRESS_AWARE 2
 
 #define ML_LOG_LEVEL_INFO 0
 #define ML_LOG_LEVEL_WARNING 1
@@ -195,6 +198,7 @@ public:
 	bool save_read_through{ true };
 
 	bool enable_cri_logs{ false };
+	bool large_address_aware_requested{ false };
 
 	std::unique_ptr<FileBinder> binder{ new FileBinder() };
 	VirtualFileSystem* vfs{ &binder->vfs };
