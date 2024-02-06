@@ -4,3 +4,6 @@
 [submodule "Dependencies/BlueBlur"]
 	path = Dependencies/BlueBlur
 	url = https://github.com/blueskythlikesclouds/BlueBlur
+[submodule "Dependencies/LWAPI"]
+	path = Dependencies/LWAPI
+	url = https://github.com/hedge-dev/LWAPI

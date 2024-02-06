@@ -27,6 +27,8 @@
     <ClInclude Include="ExceptionHandler.h" />
     <ClInclude Include="Game\Revengeance\GameVariables.h" />
     <ClInclude Include="b64.h" />
+    <ClInclude Include="Game\Sonic2013\LWPackfile.h" />
+    <ClInclude Include="BINA.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
@@ -55,6 +57,9 @@
     <ClCompile Include="Game\BlueBlur\BBWorkHandler.cpp" />
     <ClCompile Include="ExceptionHandler.cpp" />
     <ClCompile Include="Game\Revengeance\MGRGameVariables.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWWorkHandler.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWPackfile.cpp" />
+    <ClCompile Include="BINA.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">

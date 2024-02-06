@@ -60,8 +60,8 @@ constexpr bool is_dir_separator(TChar c)
 
 HMODULE LoadSystemLibrary(const char* name);
 const char* make_string_symbol(const std::string_view& str);
-Buffer* make_buffer(size_t size);
-Buffer* read_file(const char* path, bool text_file = false);
+std::unique_ptr<Buffer> make_buffer(size_t size);
+std::unique_ptr<Buffer> read_file(const char* path, bool text_file = false);
 bool file_exists(const char* path);
 bool file_exists(const std::filesystem::path& path);
 std::string strtrim(const char* str, const char* s = nullptr);

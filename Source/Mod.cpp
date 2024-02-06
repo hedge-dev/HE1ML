@@ -13,7 +13,7 @@ bool Mod::Load(const std::string& path)
 	this->path = path;
 	root = modPath.parent_path().string();
 
-	const auto file = std::unique_ptr<Buffer>(read_file(path.c_str(), true));
+	const auto file = read_file(path.c_str(), true);
 
 	if (file == nullptr)
 	{
@@ -108,11 +108,12 @@ void Mod::Init(int in_bind_priority)
 	int i = 0;
 	for (const auto& includePath : std::views::reverse(include_paths))
 	{
+		BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
+
 		switch (g_game->id)
 		{
 		case eGameID_SonicGenerations:
 			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), i);
-			BindDirectory("work/", (root / includePath / "work").string().c_str(), i);
 			goto bindMovie;
 
 		case eGameID_SonicLostWorld:
@@ -132,7 +133,7 @@ void Mod::Init(int in_bind_priority)
 	for (auto& config : cpk_configs)
 	{
 		const auto path = (root / config.name);
-		const auto file = std::unique_ptr<Buffer>(read_file(path.string().c_str(), true));
+		const auto file = read_file(path.string().c_str(), true);
 		if (file == nullptr)
 		{
 			continue;
