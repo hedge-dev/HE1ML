@@ -442,7 +442,7 @@ int ML_API ModLoader_BindFile(const Mod_t* mod, const char* path, const char* de
 int ML_API ModLoader_BindDirectory(const Mod_t* mod, const char* path, const char* destination, int priority)
 {
 	const auto* impl = static_cast<Mod*>(mod->pImpl);
-	return impl->BindFile(path, destination, priority);
+	return impl->BindDirectory(path, destination, priority);
 }
 
 int ML_API ModLoader_BindFileEx(const char* path, const char* destination, int priority)
