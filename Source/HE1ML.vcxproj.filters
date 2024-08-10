@@ -60,6 +60,7 @@
     <ClCompile Include="Game\Sonic2013\LWWorkHandler.cpp" />
     <ClCompile Include="Game\Sonic2013\LWPackfile.cpp" />
     <ClCompile Include="BINA.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWAwbRedirector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Dependencies">
