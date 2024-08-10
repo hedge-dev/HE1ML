@@ -6,6 +6,7 @@ namespace lw
 {
 	void InitSaveRedir();
 	void InitWork();
+	void InitAwbRedirector();
 
 	CriErrCbFunc& g_err_callback = *reinterpret_cast<CriErrCbFunc*>(ASLR(0x00FF8D54));
 	void CRIAPI criErr_SetCallback(CriErrCbFunc cbf)
@@ -73,6 +74,7 @@ namespace lw
 			g_binder->BindDirectory("work\\", (g_loader->root_path / "work").string().c_str(), 0);
 			InitSaveRedir();
 			InitWork();
+			InitAwbRedirector();
 			return true;
 		}
 		return false;

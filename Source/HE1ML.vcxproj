@@ -143,6 +143,7 @@
     <ClCompile Include="Game\BlueBlur\BBGameVariables.cpp" />
     <ClCompile Include="Game\Revengeance\MGRGameVariables.cpp" />
     <ClCompile Include="Game\Sonic2013\HostFileSystemSave.cpp" />
+    <ClCompile Include="Game\Sonic2013\LWAwbRedirector.cpp" />
     <ClCompile Include="Game\Sonic2013\LWGameVariables.cpp" />
     <ClCompile Include="Game\Sonic2013\LWPackfile.cpp" />
     <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
