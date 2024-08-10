@@ -4,8 +4,8 @@ struct CriAtomAwbTag
     char* path;
 };
 
-static FUNCTION_PTR(void*, __cdecl, criAtomAwbTocGetBinderHandle, 0xC98D83, CriAtomAwbTag* awb, uint32_t* id);
-static FUNCTION_PTR(void, __cdecl, criAtomAwbGetWaveFileInfo, 0x9A06D2, CriAtomAwbTag* awb, int32_t id, uint64_t* offset, uint32_t* size);
+static FUNCTION_PTR(void*, __cdecl, criAtomAwbTocGetBinderHandle, ASLR(0xC98D83), CriAtomAwbTag* awb, uint32_t* id);
+static FUNCTION_PTR(void, __cdecl, criAtomAwbGetWaveFileInfo, ASLR(0x9A06D2), CriAtomAwbTag* awb, int32_t id, uint64_t* offset, uint32_t* size);
 
 struct CriAtomPlayerTag
 {
@@ -16,7 +16,7 @@ struct CriAtomPlayerTag
 
 static void criAtomPlayerSetFileCore(CriAtomPlayerTag* player, void* binder, const char* path, uint32_t offset_, uint32_t size_)
 {
-    static uint32_t funcAddr = 0x994520;
+    static uint32_t funcAddr = ASLR(0x994520);
     __asm
     {
         push size_
@@ -87,6 +87,6 @@ namespace lw
 {
     void InitAwbRedirector()
     {
-        WRITE_JUMP(0x9945B5, criAtomPlayerSetWaveIdFileTrampoline);
+        WRITE_JUMP(ASLR(0x9945B5), criAtomPlayerSetWaveIdFileTrampoline);
     }
 }
