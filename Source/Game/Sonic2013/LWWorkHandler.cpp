@@ -42,14 +42,14 @@ namespace lw
 					requests.pop();
 				}
 
-				const auto handle = request->m_pHandle.get();
+				const auto handle = request->pHandle.get();
 
 				// Collect pac files from mods
 				char appendPathBuf[128];
-				const auto appendPacFilePathLen = std::strlen(handle->m_Path);
+				const auto appendPacFilePathLen = std::strlen(handle->Path);
 				std::size_t pacNamePos = 0;
 
-				std::memcpy(appendPathBuf, handle->m_Path, appendPacFilePathLen + 1);
+				std::memcpy(appendPathBuf, handle->Path, appendPacFilePathLen + 1);
 
 				// Go backwards from the end of the append pac file path
 				// until we find the position of the file name.
@@ -63,7 +63,7 @@ namespace lw
 				}
 
 				appendPathBuf[pacNamePos] = '+';
-				std::strcpy(appendPathBuf + pacNamePos + 1, handle->m_Name);
+				std::strcpy(appendPathBuf + pacNamePos + 1, handle->Name);
 
 				// Build a new packfile if there are any append packfiles.
 				const auto bindings = g_binder->CollectBindings(appendPathBuf);
@@ -71,13 +71,13 @@ namespace lw
 				if (!bindings.empty() &&
 					// TODO: Please replace this temporary code with a better way to detect splits!!!
 					appendPacFilePathLen > 3 &&
-					(handle->m_Path.c_str())[appendPacFilePathLen - 1] == 'c' &&
-					(handle->m_Path.c_str())[appendPacFilePathLen - 2] == 'a' &&
-					(handle->m_Path.c_str())[appendPacFilePathLen - 3] == 'p'
+					(handle->Path.c_str())[appendPacFilePathLen - 1] == 'c' &&
+					(handle->Path.c_str())[appendPacFilePathLen - 2] == 'a' &&
+					(handle->Path.c_str())[appendPacFilePathLen - 3] == 'p'
 					)
 				{
 					// Start building a new packfile.
-					builder.Start(handle->m_pBuffer, handle->m_pBufferAllocator);
+					builder.Start(handle->pBuffer, handle->pBufferAllocator);
 
 					// Iterate in reverse so priority is still correct when loading splits in reverse.
 					for (const auto& binding : std::views::reverse(bindings))
@@ -91,16 +91,16 @@ namespace lw
 				}
 				
 #if 0 // Buffer override experiment
-				auto old_buffer = handle->m_pBuffer;
-				handle->m_pBuffer = handle->m_pBufferAllocator->Alloc(handle->m_BufferSize, 16);
-				memcpy(handle->m_pBuffer, old_buffer, handle->m_Size);
+				auto old_buffer = handle->pBuffer;
+				handle->pBuffer = handle->pBufferAllocator->Alloc(handle->BufferSize, 16);
+				memcpy(handle->pBuffer, old_buffer, handle->Size);
 
-				if (!(handle->m_BufferFlags & 1))
+				if (!(handle->BufferFlags & 1))
 				{
-					handle->m_pBufferAllocator->Free(old_buffer);
+					handle->pBufferAllocator->Free(old_buffer);
 				}
 
-				handle->m_BufferFlags &= ~1;
+				handle->BufferFlags &= ~1;
 #endif
 
 				// Execute the resource job.
@@ -114,7 +114,7 @@ namespace lw
 	void __fastcall FileLoader_StartResourceJob(app::fnd::FileLoader* loader, void* _, app::fnd::FileLoader::LoadInfo* load_info)
 	{
 		std::lock_guard guard{ loader_mtx };
-		LOG("Execute resource job for %s", load_info->m_pHandle->m_Path.c_str());
+		LOG("Execute resource job for %s", load_info->pHandle->Path.c_str());
 		requests.push(load_info);
 	}
 	
@@ -147,44 +147,44 @@ namespace lw
 			 app::StageInfo::CStageInfo stage_info{ allocator };
 			 stage_info.Setup(lua);
 
-			for(const auto& stage : stage_info.m_Stages)
+			for(const auto& stage : stage_info.Stages)
 			{
 				stage->AddRef(); // Makes it deletable later
 
-				auto* base_stage = instance->GetStageData(stage->m_Name.c_str());
+				auto* base_stage = instance->GetStageData(stage->Name.c_str());
 				if (base_stage != nullptr)
 				{
-					stage->m_Zone = base_stage->m_Zone;
-					stage->m_Act = base_stage->m_Act;
+					stage->Zone = base_stage->Zone;
+					stage->Act = base_stage->Act;
 
-					memcpy(&base_stage->m_Name, &stage->m_Name, sizeof(app::StageInfo::SStageData) - offsetof(app::StageInfo::SStageData, m_Name));
+					memcpy(&base_stage->Name, &stage->Name, sizeof(app::StageInfo::SStageData) - offsetof(app::StageInfo::SStageData, Name));
 				}
 				else
 				{
 					stage->AddRef();
 					bool inserted{};
-					const bool in_zone = (stage->m_Act < 5 && stage->m_Zone < stage_info.m_Zones.size()) && stage->m_Name == stage_info.m_Zones[stage->m_Zone].m_Missions[stage->m_Act].c_str();
+					const bool in_zone = (stage->Act < 5 && stage->Zone < stage_info.Zones.size()) && stage->Name == stage_info.Zones[stage->Zone].Missions[stage->Act].c_str();
 					if (in_zone)
 					{
-						auto& zone = instance->m_Zones[stage->m_Zone];
-						zone.m_Missions[stage->m_Act] = stage->m_Name.c_str();
-						const bool need_adjust = (zone.m_NumMissions < stage->m_Act + 1) && stage->m_Act < 5;
+						auto& zone = instance->Zones[stage->Zone];
+						zone.Missions[stage->Act] = stage->Name.c_str();
+						const bool need_adjust = (zone.NumMissions < stage->Act + 1) && stage->Act < 5;
 
-						const auto idx = zone.m_NumMissions;
-						zone.m_NumMissions = std::min(5, stage->m_Act + 1);
+						const auto idx = zone.NumMissions;
+						zone.NumMissions = std::min<>(5, stage->Act + 1);
 
 						if (need_adjust)
 						{
-							const auto insert_idx = idx + zone.m_StageOffset;
-							instance->m_Stages.insert(insert_idx, stage);
+							const auto insert_idx = idx + zone.StageOffset;
+							instance->Stages.insert(insert_idx, stage);
 							inserted = true;
 
 							// Correct other zones
-							for (auto it = &zone; it != instance->m_Zones.end(); ++it)
+							for (auto it = &zone; it != instance->Zones.end(); ++it)
 							{
-								if (insert_idx < it->m_StageOffset)
+								if (insert_idx < it->StageOffset)
 								{
-									++it->m_StageOffset;
+									++it->StageOffset;
 								}
 							}
 						}
@@ -192,13 +192,13 @@ namespace lw
 
 					if (!inserted)
 					{
-						instance->m_Stages.push_back(stage);
+						instance->Stages.push_back(stage);
 					}
 				}
 			}
 		}
 
-		instance->m_StageNames.clear();
+		instance->StageNames.clear();
 		instance->SetupZoneInfo();
 
 		for (const auto& binding : std::views::reverse(data_appends))
@@ -218,12 +218,12 @@ namespace lw
 
 			for (size_t i = 0; i < 2; i++)
 			{
-				auto& worlds = stage_info.m_Worlds[i];
+				auto& worlds = stage_info.Worlds[i];
 				for (const auto& world : worlds)
 				{
 					for (const auto& stage : world->GetStages())
 					{
-						instance->AddDebugLevel(world->GetTitle(), stage.m_Title, stage.m_Name, i);
+						instance->AddDebugLevel(world->GetTitle(), stage.Title, stage.Name, i);
 					}
 				}
 			}
@@ -235,9 +235,9 @@ namespace lw
 	HOOK(void, __fastcall, Packfile_Cleanup, ASLR(0x00C19090), hh::ut::PackFile* pac)
 	{
 		// If this packfile has a pointer to a linked list node, cleanup all of the nodes in the list.
-		if (pac->ref().m_Status & pacx::PACX_HEADER_STATUS_HE1ML_HAS_NEXT_NODE)
+		if (pac->ref().Status & pacx::PACX_HEADER_STATUS_HE1ML_HAS_NEXT_NODE)
 		{
-			auto curNode = reinterpret_cast<pacx::LinkedListNode*>(pac->ref().m_Size);
+			auto curNode = reinterpret_cast<pacx::LinkedListNode*>(pac->ref().Size);
 
 			do
 			{
