@@ -7,7 +7,7 @@
 
 ModLoader loader{};
 
-void Init()
+extern "C" __declspec(dllexport) void Init()
 {
 	CommonLoader::Init();
 	if (file_exists(MODLOADER_CONFIG_NAME))
