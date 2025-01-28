@@ -5,6 +5,7 @@
 #include "CRIWARE/Criware.h"
 #include "Utilities.h"
 #include "Mod.h"
+#include <intrin.h>
 
 void D3D9Hooks_Init();
 void StdOutLogHandler(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)

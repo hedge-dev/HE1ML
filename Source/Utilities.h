@@ -234,7 +234,7 @@ constexpr size_t ptrtostr(size_t ptr, char* buffer)
 
 	for (int i = (sizeof(size_t) * 2) - 1; i >= 0; --i)
 	{
-		auto digit = ptr & 0xF;
+		const char digit = static_cast<char>(ptr & 0xF);
 		ptr >>= 4;
 		buffer[i] = digit < 10 ? zero + digit : a + (digit - 10);
 	}
@@ -247,10 +247,10 @@ constexpr void* strtoptr(const std::string_view& str)
 {
 	size_t ptr = 0;
 
-	for (int i = 0; i < std::min(str.size(), sizeof(size_t) * 2); ++i)
+	for (size_t i = 0; i < std::min<>(str.size(), sizeof(size_t) * 2); ++i)
 	{
 		ptr <<= 4;
-		auto c = str[i];
+		const char c = str[i];
 		if (c >= '0' && c <= '9')
 		{
 			ptr |= c - '0';
@@ -283,11 +283,11 @@ constexpr std::string ptrtostr(size_t ptr)
 template<bool CaseInsensitive = false>
 constexpr size_t strhash(const std::string_view& str)
 {
-	int hash1 = (5381 << 16) + 5381;
-	int hash2 = hash1;
+	size_t hash1 = (5381 << 16) + 5381;
+	size_t hash2 = hash1;
 
 	const size_t length = str.size();
-	for (int i = 0; i < length; i += 2)
+	for (size_t i = 0; i < length; i += 2)
 	{
 		hash1 = ((hash1 << 5) + hash1) ^ (CaseInsensitive ? tolower_c(str[i]) : str[i]);
 		if (i == length - 1)
