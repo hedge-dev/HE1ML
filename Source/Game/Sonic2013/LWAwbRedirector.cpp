@@ -1,3 +1,4 @@
+#ifndef _WIN64
 struct CriAtomAwbTag
 {
     INSERT_PADDING(0x8);
@@ -90,3 +91,4 @@ namespace lw
         WRITE_JUMP(ASLR(0x9945B5), criAtomPlayerSetWaveIdFileTrampoline);
     }
 }
+#endif

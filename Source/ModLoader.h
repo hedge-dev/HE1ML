@@ -37,7 +37,7 @@ struct MLUpdateInfo
 
 #define ML_MOD_PRIORITY_MAX 0
 
-typedef void ML_API LogEvent_t(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
+typedef void ML_API LogEvent_t(void* obj, int level, int category, const char* message, size_t p1, size_t p2, const uint32_t* parray);
 struct ModLoaderAPI_t;
 struct CommonLoaderAPI;
 
@@ -113,7 +113,7 @@ struct ModLoaderAPI_t
 	DECLARE_API_FUNC(int, BindFileEx, const char* path, const char* destination, int priority);
 	DECLARE_API_FUNC(int, BindDirectoryEx, const char* path, const char* destination, int priority);
 	DECLARE_API_FUNC(const Mod_t*, FindModEx, const void* data, int property_type);
-	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray);
+	DECLARE_API_FUNC(void, Log, int level, int category, const char* message, size_t p1, size_t p2, const uint32_t* parray);
 	DECLARE_API_FUNC(void, SetSaveFile, const char* path);
 	DECLARE_API_FUNC(bool, LoadExternalModule, const char* path);
 };
@@ -226,7 +226,7 @@ public:
 		log_handlers.emplace_back(obj, event);
 	}
 
-	void WriteLog(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray) const;
+	void WriteLog(int level, int category, const char* message, size_t p1, size_t p2, const uint32_t* parray) const;
 	void WriteLog(int level, int category, const char* message, size_t p1, size_t p2) const
 	{
 		WriteLog(level, category, message, p1, p2, nullptr);

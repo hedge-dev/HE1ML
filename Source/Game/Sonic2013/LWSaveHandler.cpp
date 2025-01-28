@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "Globals.h"
 #include "HostFileSystemSave.h"
 
@@ -14,3 +15,4 @@ namespace lw
 		WRITE_MEMORY(ASLR(0x009012B0), size_t, ppSaveFs); // CSaveManager::CImpl::SaveDataLoad
 	}
 }
+#endif

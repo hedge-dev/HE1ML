@@ -8,7 +8,7 @@
 #include <intrin.h>
 
 void D3D9Hooks_Init();
-void StdOutLogHandler(void* obj, int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)
+void StdOutLogHandler(void* obj, int level, int category, const char* message, size_t p1, size_t p2, const uint32_t* parray)
 {
 	if (category == ML_LOG_CATEGORY_GENERAL)
 	{
@@ -380,7 +380,7 @@ void ModLoader::FilterMods()
 	}
 }
 
-void ModLoader::WriteLog(int category, int sub_category, const char* message, size_t p1, size_t p2, size_t* parray) const
+void ModLoader::WriteLog(int category, int sub_category, const char* message, size_t p1, size_t p2, const uint32_t* parray) const
 {
 	for (const auto& handler : log_handlers)
 	{
@@ -505,7 +505,7 @@ const Mod_t* ML_API ModLoader_FindModEx(const void* data, int type)
 	return nullptr;
 }
 
-void ML_API ModLoader_Log(int level, int category, const char* message, size_t p1, size_t p2, size_t* parray)
+void ML_API ModLoader_Log(int level, int category, const char* message, size_t p1, size_t p2, const uint32_t* parray)
 {
 	g_loader->WriteLog(level, category, message, p1, p2, parray);
 }

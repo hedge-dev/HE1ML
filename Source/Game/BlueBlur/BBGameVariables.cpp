@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "GameVariables.h"
 #include "CRIWARE/Criware.h"
 #include "CriwareGenerations.h"
@@ -112,3 +113,4 @@ namespace bb
 		return false;
 	}
 }
+#endif

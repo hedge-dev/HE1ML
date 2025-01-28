@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "GameVariables.h"
 #include <CRIWARE/Criware.h>
 #include <Game.h>
@@ -80,3 +81,4 @@ namespace lw
 		return false;
 	}
 }
+#endif

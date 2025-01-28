@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "Globals.h"
 
 HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsExist, 0x00E7A3D0, void* ecx)
@@ -86,3 +87,4 @@ namespace bb
 		INSTALL_HOOK(CSaveLoadTestPC_SaveContentsDelete);
 	}
 }
+#endif

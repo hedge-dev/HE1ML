@@ -1,4 +1,5 @@
 #pragma once
+#ifndef _WIN64
 #include <Sonic2013/Sonic2013.h>
 
 namespace lw::pacx
@@ -362,3 +363,4 @@ namespace lw::pacx
 		~Builder();
 	};
 }
+#endif

@@ -23,6 +23,7 @@ const Game& Game::GetExecutingGame()
 
 	switch (nt_header->FileHeader.TimeDateStamp)
 	{
+#ifndef _WIN64
 		case timestamp_gens: 
 			executing_game = { eGameID_SonicGenerations, "Sonic Generations", bb::GetValue, bb::EventProc };
 			break;
@@ -34,6 +35,7 @@ const Game& Game::GetExecutingGame()
 		case timestamp_mgrr:
 			executing_game = { eGameID_MetalGearRising, "METAL GEAR RISING: REVENGEANCE", mgr::GetValue, mgr::EventProc };
 			break;
+#endif
 
 		default:
 			executing_game = { eGameID_Unknown, "Unknown", GetValue_Null, EventProc_Null };

@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "LWPackfile.h"
 #include <Sonic2013/Sonic2013.h>
 #include <queue>
@@ -260,3 +261,4 @@ namespace lw
 		INSTALL_HOOK(Packfile_Cleanup);
 	}
 }
+#endif

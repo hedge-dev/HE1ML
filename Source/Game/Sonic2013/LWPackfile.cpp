@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "LWPackfile.h"
 #include "BINA.h"
 
@@ -521,3 +522,4 @@ namespace lw::pacx
 		freePacBuffers();
 	}
 }
+#endif

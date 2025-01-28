@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "GameVariables.h"
 #include <CRIWARE/Criware.h>
 #include <Game.h>
@@ -87,3 +88,4 @@ namespace mgr
 		return false;
 	}
 }
+#endif

@@ -1,3 +1,4 @@
+#ifndef _WIN64
 #include "Globals.h"
 #define BB_EXCLUDE_NAMESPACE_ALIASES
 #include <BlueBlur.h>
@@ -367,3 +368,4 @@ namespace bb
 		INSTALL_HOOK(MakePixelShaderCodeData);
 	}
 }
+#endif
