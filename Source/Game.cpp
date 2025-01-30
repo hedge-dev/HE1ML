@@ -3,10 +3,11 @@
 #include <Game/BlueBlur/GameVariables.h>
 #include <Game/Sonic2013/GameVariables.h>
 #include <Game/Revengeance/GameVariables.h>
+#include <Game/Gens2024/GameVariables.h>
 
 Game executing_game{};
 
-constexpr uint32_t timestamp_gens{ 0x4ED631A1 };
+constexpr uint32_t timestamp_gens2011{ 0x4ED631A1 };
 constexpr uint32_t timestamp_slw{ 0x5677710B };
 constexpr uint32_t timestamp_mgrr{ 0x52E76F3A };
 
@@ -17,15 +18,19 @@ const Game& Game::GetExecutingGame()
 		return executing_game;
 	}
 
+#ifdef _WIN64
+	// TODO: Do this a better way; don't hardcode this!!!
+	executing_game = { eGameID_SonicGenerations2024, "Sonic Generations (2024)", gens2024::GetValue, gens2024::EventProc };
+#else
+
 	// Get timestamp of currently executing module using the NT header
 	const auto nt_header = reinterpret_cast<PIMAGE_NT_HEADERS>(reinterpret_cast<uintptr_t>(GetModuleHandle(nullptr)) +
 		reinterpret_cast<PIMAGE_DOS_HEADER>(GetModuleHandle(nullptr))->e_lfanew);
 
 	switch (nt_header->FileHeader.TimeDateStamp)
 	{
-#ifndef _WIN64
-		case timestamp_gens: 
-			executing_game = { eGameID_SonicGenerations, "Sonic Generations", bb::GetValue, bb::EventProc };
+		case timestamp_gens2011: 
+			executing_game = { eGameID_SonicGenerations2011, "Sonic Generations (2011)", bb::GetValue, bb::EventProc };
 			break;
 
 		case timestamp_slw:
@@ -35,12 +40,12 @@ const Game& Game::GetExecutingGame()
 		case timestamp_mgrr:
 			executing_game = { eGameID_MetalGearRising, "METAL GEAR RISING: REVENGEANCE", mgr::GetValue, mgr::EventProc };
 			break;
-#endif
 
 		default:
 			executing_game = { eGameID_Unknown, "Unknown", GetValue_Null, EventProc_Null };
 			break;
 	}
+#endif
 
 	return executing_game;
 }

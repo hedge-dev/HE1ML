@@ -9,6 +9,11 @@ ModLoader loader{};
 
 extern "C" __declspec(dllexport) void Init()
 {
+	if (g_game->id == eGameID_SonicGenerations2024)
+	{
+		loader.BasicInit();
+	}
+
 	CommonLoader::Init();
 	if (file_exists(MODLOADER_CONFIG_NAME))
 	{
@@ -120,6 +125,10 @@ void Startup(HMODULE module)
 		{
 			MessageBoxA(NULL, message, "HE1ML", MB_OK);
 		}
+		return;
+	}
+	else if (g_game->id == eGameID_SonicGenerations2024)
+	{
 		return;
 	}
 

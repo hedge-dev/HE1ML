@@ -112,7 +112,7 @@ void Mod::Init(int in_bind_priority)
 
 		switch (g_game->id)
 		{
-		case eGameID_SonicGenerations:
+		case eGameID_SonicGenerations2011:
 			BindDirectory("Sound/", (root / includePath / "Sound").string().c_str(), i);
 			goto bindMovie;
 
@@ -121,6 +121,10 @@ void Mod::Init(int in_bind_priority)
 
 			bindMovie:
 			BindDirectory("movie/", (root / includePath / "movie").string().c_str(), i);
+			break;
+
+		case eGameID_SonicGenerations2024:
+			BindDirectory("image/x64/generations/", (root / includePath / "generations").string().c_str(), i);
 			break;
 
 		default:
