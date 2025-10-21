@@ -118,7 +118,7 @@ void ModLoader::Init(const char* configPath)
 		AddLogger(this, StdOutLogHandler);
 	}
 
-	std::string dbPath = strtrim(cpkSection["ModsDbIni"], "\"");
+	std::string dbPath = strtrim(g_game->id == eGameID_SonicGenerations2024 ? cpkSection["ModsDbIniGens2024"] : cpkSection["ModsDbIni"], "\"");
 	if (dbPath.empty())
 	{
 		dbPath = "Mods\\ModsDb.ini";

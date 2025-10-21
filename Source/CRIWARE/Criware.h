@@ -2,6 +2,9 @@
 #define CRIAPI __cdecl
 typedef void* CriFsBinderHn;
 typedef void* CriFsLoaderHn;
+typedef void* CriAtomAwbHn;
+typedef void* CriAtomExAcbHn;
+typedef void* CriAtomPlayerHn;
 typedef char CriChar8;
 typedef int32_t CriSint32;
 typedef int64_t CriSint64;
@@ -151,14 +154,16 @@ typedef struct CriFsIoInterfaceTag {
 typedef CriError(CRIAPI* CriFsSelectIoCbFunc)(
 	const CriChar8* path, CriFsDeviceId* device_id, CriFsIoInterfacePtr* ioif);
 
-inline int crifs_uint_ptr_to_string(unsigned int a1, char* a2)
+inline int crifs_uint_ptr_to_string(uintptr_t a1, char* a2)
 {
+	constexpr int uintPtrNibbleCount = (sizeof(uintptr_t) * 2);
+
 	// Disassembled code
 	int i; // r9
 	char v3; // r11
 	bool v4; // cr32
 
-	for (i = 7; i >= 0; --i)
+	for (i = (uintPtrNibbleCount - 1); i >= 0; --i)
 	{
 		v3 = a1 & 0xF;
 		v4 = (a1 & 0xF) < 0xA;
@@ -168,7 +173,7 @@ inline int crifs_uint_ptr_to_string(unsigned int a1, char* a2)
 		else
 			*(a2 + i) = v3 + 55;
 	}
-	return 8;
+	return uintPtrNibbleCount;
 }
 
 inline int criFs_AddressToPath(const void* buffer, CriUint32 buffer_size, CriChar8* path, CriSint32 length)
@@ -180,7 +185,7 @@ inline int criFs_AddressToPath(const void* buffer, CriUint32 buffer_size, CriCha
 		if (length >= 28)
 		{
 			strcpy_s(path, length, "CRIFSMEM:/");
-			crifs_uint_ptr_to_string(reinterpret_cast<unsigned int>(buffer), (path + 10));
+			crifs_uint_ptr_to_string(reinterpret_cast<uintptr_t>(buffer), (path + 10));
 			path[18] = 46;
 			crifs_uint_ptr_to_string(buffer_size, (path + 19));
 			result = 0;
@@ -269,6 +274,31 @@ struct CriFunctionTable
 	FUNCTION_PTR(CriError, CRIAPI, criFsLoader_Load, nullptr, CriFsLoaderHn loader,
 		CriFsBinderHn binder, const CriChar8* path, CriSint64 offset,
 		CriSint64 load_size, void* buffer, CriSint64 buffer_size);
+
+	// Atom Functions (only used by newer games, such as Gens2024)
+	FUNCTION_PTR(CriAtomExAcbHn, CRIAPI, criAtomExAcb_LoadAcbFile, nullptr,
+		CriFsBinderHn acb_binder, const CriChar8* acb_path,
+		CriFsBinderHn awb_binder, const CriChar8* awb_path,
+		void* work, CriSint32 work_size);
+
+	FUNCTION_PTR(CriAtomExAcbHn, CRIAPI, criAtomExAcb_LoadAcbData, nullptr,
+		void* acb_data, CriSint32 acb_data_size,
+		CriFsBinderHn awb_binder, const CriChar8* awb_path,
+		void* work, CriSint32 work_size);
+
+	//FUNCTION_PTR(CriError, CRIAPI, criFsBinder_BindFile, nullptr, CriFsBinderHn bndrhn,
+		//CriFsBinderHn srcbndrhn, const CriChar8* path, void* work,
+		//CriSint32 worksize, CriFsBindId* bndrid);
+
+	FUNCTION_PTR(void, CRIAPI, criatomplayer_set_file_core, nullptr,
+		CriAtomPlayerHn player, CriFsBinderHn binder, const char* path,
+		size_t offset, size_t size);
+
+	FUNCTION_PTR(void, CRIAPI, criAtomPlayer_SetWaveId, nullptr,
+		CriAtomPlayerHn player, CriAtomAwbHn awb, CriSint32 id);
+
+	FUNCTION_PTR(void, CRIAPI, criatomplayer_set_wave_id_core, nullptr,
+		CriAtomPlayerHn player, CriAtomAwbHn awb, CriSint32 id); //, CriUint32 offset);
 };
 
 #ifdef MODLOADER_IMPLEMENTATION
