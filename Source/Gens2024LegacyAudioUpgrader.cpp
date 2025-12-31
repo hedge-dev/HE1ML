@@ -676,9 +676,14 @@ namespace gens2024
 					acbGraph.points.emplace_back(
 						static_cast<float>(
 							(static_cast<double>(csbPoint.in) / 10000.0) *
-							csbGraph.inputMax // TODO: Apply imin
+							(csbGraph.inputMax - csbGraph.inputMin) +
+							csbGraph.inputMin
 						),
-						csbPoint.out // TODO: Apply omax/omin
+						static_cast<hl::u16>(
+							((static_cast<double>(csbPoint.out) / 10000.0) *
+							(csbGraph.outputMax - csbGraph.outputMin) +
+							csbGraph.outputMin) * 10000.0
+						)
 					);
 				}
 			}
