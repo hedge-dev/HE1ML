@@ -657,7 +657,7 @@ namespace gens2024
 			auto& acbAisac = acb.aisacs.emplace_back();
 
 			acbAisac.controlID = controlID;
-			acbAisac.graphIndices.resize(rad::no_value_init, csbAisac.second.graphs.size());
+			acbAisac.graphIndices.reserve(csbAisac.second.graphs.size());
 
 			// Convert AISAC graphs.
 			for (const auto& csbGraph : csbAisac.second.graphs)
