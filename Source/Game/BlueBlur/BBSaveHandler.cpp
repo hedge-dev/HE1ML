@@ -1,6 +1,6 @@
 #include "Globals.h"
 
-HOOK(bool, __fastcall, CSaveLoadTestPC_SaveContentsExist, 0x00E7A3D0, void* ecx)
+HOOK(int, __fastcall, CSaveLoadTestPC_SaveContentsExist, 0x00E7A3D0, void* ecx)
 {
 	if (!g_loader->save_redirection)
 	{
