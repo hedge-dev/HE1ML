@@ -12,7 +12,7 @@ BEGIN
             VALUE "FileDescription", "Mod loader for Hedgehog Engine 1 games on PC (SLW, Sonic Generations)"
             VALUE "FileVersion", VERSION_STRING
             VALUE "InternalName", "HE1ML.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2023"
+            VALUE "LegalCopyright", "Copyright (C) 2026"
             VALUE "OriginalFilename", "HE1ML.dll"
             VALUE "ProductName", PRODUCT_NAME
             VALUE "ProductVersion", VERSION_STRING
