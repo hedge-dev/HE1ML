@@ -1,32 +1,22 @@
+#include <exception>
+#include <rad/rad_memory_stream.h>
+#include <string_view>
 #include "Gens2024LegacyAudioUpgrader.h"
-#include "Gens2024LegacyAudioGenerator.h"
-#include "Gens2024LegacyAudioParser.h"
-#include <hedgelib/cri/hl_cri_cue_sheet.h>
-#include <hedgelib/cri/hl_cri_atom_cue_sheet.h>
-#include <hedgelib/cri/hl_cri_atom_wave_bank.h>
-#include <hedgelib/cri/hl_cri_packed_file.h>
-#include <rad/rad_stack_or_heap_array.h>
-#include <rad/rad_file.h> // TODO: REMOVE THIS
 
-using namespace hl::cri_new;
+using namespace hl::cri;
 
 namespace gens2024
 {
-	struct CSBToACBMapEntry
+	enum ACFCategory
 	{
-		hl::u16 aisacIndex;
-		hl::u16 aisacControlIndex;
-
-		CSBToACBMapEntry(hl::u16 aisacIndex, hl::u16 aisacControlIndex) noexcept
-			: aisacIndex(aisacIndex)
-			, aisacControlIndex(aisacControlIndex)
-		{
-		}
+		ACF_CATEGORY_BGM = 0,
+		ACF_CATEGORY_SE = 1,
+		ACF_CATEGORY_VOICE = 2,
+		ACF_CATEGORY_SYSTEM = 3,
+		ACF_CATEGORY_SE_EVENT = 4,
 	};
 
-	using CSBToACBMap = ankerl::unordered_dense::map<std::string_view, CSBToACBMapEntry>;
-
-	static const char* GlobalAisacControls[] =
+	static const std::string_view GlobalAisacControls[] =
 	{
 		"distance",
 		"uw_switch",
@@ -46,11 +36,15 @@ namespace gens2024
 		"vol"
 	};
 
-	static hl::u16 GetAisacControlIndex(const char* aisacControlName)
+	static constexpr hl::u16 GlobalAisacControlCount = static_cast<hl::u16>(
+		std::size(GlobalAisacControls)
+	);
+
+	static hl::u16 GetGlobalAisacControlIndex(std::string_view aisacControlName) noexcept
 	{
-		for (hl::u16 i = 0; i < static_cast<hl::u16>(std::size(GlobalAisacControls)); ++i)
+		for (hl::u16 i = 0; i < GlobalAisacControlCount; ++i)
 		{
-			if (std::strcmp(GlobalAisacControls[i], aisacControlName) == 0)
+			if (aisacControlName == GlobalAisacControls[i])
 			{
 				return i;
 			}
@@ -59,626 +53,690 @@ namespace gens2024
 		return UINT16_MAX;
 	}
 
-	enum ACFCategory
+	static const audio::sound_element& GetCSBLinkSoundElement(
+		const audio::cue_sheet& csb,
+		std::string_view linkName)
 	{
-		ACF_CATEGORY_BGM = 0,
-		ACF_CATEGORY_SE = 1,
-		ACF_CATEGORY_VOICE = 2,
-	};
-	
-	class CSBUpgrader
-	{
-		atom::cue_sheet									acb;
-		const audio::cue_sheet*							csb;
-		const WaveformInfo*								waveformsInfo;
-		rad::stack_or_heap_array<unsigned short, 64>	soundElementToWaveformMap;
-		bool											hasUpgraded = false;
-
-		static void assignAisacIndices(
-			const audio::synth& csbSynth,
-			const CSBToACBMap& aisacMap,
-			rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-			rad::vector<hl::u16>& localAisacIndices
-		);
-
-		unsigned short generateSynth(unsigned short acbWavwformIndex);
-
-		unsigned short generateTrackCmdTable(
-			const audio::synth& csbSynth,
-			ACFCategory category
-		);
-
-		unsigned short generateTrackEvent(
-			const audio::synth& csbSynth,
-			const CSBToACBMap& aisacMap,
-			rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-			ACFCategory category
-		);
-
-		unsigned short generateTrack(
-			const audio::synth& csbSynth,
-			const CSBToACBMap& aisacMap,
-			rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-			ACFCategory category
-		);
-
-		unsigned short generateBgmSequenceCmdTable();
-
-		unsigned short generateVoiceSequenceCmdTable();
-
-		unsigned short generateSequence(
-			const audio::synth& csbSynth,
-			const CSBToACBMap& aisacMap,
-			rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-			ACFCategory category
-		);
-
-	public:
-		inline const atom::cue_sheet& result() const noexcept
+		const auto csbLinkSoundElement = csb.find_sound_element(linkName);
+		if (csbLinkSoundElement == csb.soundElements.end())
 		{
-			return acb;
+			throw std::runtime_error(
+				"CSB synth links to a sound element which was not found"
+			);
 		}
 
-		CSBUpgrader(
-			const audio::cue_sheet& csb,
-			rad::span<const WaveformInfo> waveformsInfo,
-			std::string_view name
-		);
-	};
+		return *csbLinkSoundElement;
+	}
 
-	void CSBUpgrader::assignAisacIndices(
-		const audio::synth& csbSynth,
-		const CSBToACBMap& aisacMap,
+	static const audio::synth& GetCSBLinkSynth(
+		const audio::cue_sheet& csb,
+		std::string_view linkName)
+	{
+		const auto csbLinkSynth = csb.find_synth(linkName);
+		if (csbLinkSynth == csb.synths.end())
+		{
+			throw std::runtime_error(
+				"CSB synth links to a synth which was not found"
+			);
+		}
+
+		return *csbLinkSynth;
+	}
+
+	static void GenerateACBAisacIndices(
+		atom::cue_sheet& outAcb,
+		const audio::cue_sheet& csb,
 		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
+		const audio::synth& csbSynth,
 		rad::vector<hl::u16>& localAisacIndices)
 	{
 		localAisacIndices.reserve(csbSynth.aisacNames.size());
 
 		for (const auto& csbAisacName : csbSynth.aisacNames)
 		{
-			const auto it = aisacMap.find(csbAisacName);
-			if (it == aisacMap.end())
+			const auto csbAisacIt = csb.find_aisac(csbAisacName);
+			if (csbAisacIt == csb.aisacs.end())
 			{
-				// TODO: This should probably just be a warning.
-				throw std::runtime_error("Failed to map CSB AISACs to ACB");
+				// TODO: Make this a warning instead?
+				throw std::runtime_error(
+					"CSB synth references an AISAC which was not found"
+				);
 			}
 
-			localAisacIndices.push_back_unchecked(it->second.aisacIndex);
+			const auto csbAisacIndex = static_cast<hl::u16>(
+				csbAisacIt - csb.aisacs.begin()
+			);
 
-			assert((it->second.aisacControlIndex / 8) < aisacControlMap.size());
-			aisacControlMap[it->second.aisacControlIndex / 8] |= (1 << (it->second.aisacControlIndex % 8));
+			const auto& acbAisac = outAcb.aisacs[csbAisacIndex];
+			const auto aisacControlIndex = static_cast<hl::u16>(
+				acbAisac.controlId - 1000
+			);
+
+			assert((aisacControlIndex / 8) < aisacControlMap.size() &&
+				"AISAC control index exceeds allocated AISAC Control Map size; "
+				"this should never happen!"
+			);
+
+			aisacControlMap[aisacControlIndex / 8] |= (1 << (aisacControlIndex % 8));
+
+			localAisacIndices.push_back_unchecked(csbAisacIndex);
 		}
 	}
 
-	unsigned short CSBUpgrader::generateSynth(
-		unsigned short acbWaveformIndex)
+	static void GenerateACBCommands(
+		atom::command_table& cmd,
+		const audio::synth& csbSynth)
 	{
-		const auto acbSynthIndex = static_cast<unsigned short>(acb.synths.size());
-		auto& acbSynth = acb.synths.emplace_back();
+		{
+			const auto acbVolume = static_cast<unsigned short>(
+				std::round(static_cast<float>(csbSynth.volume) / 10.0f)
+			);
 
-		acbSynth.refItems.emplace_back(
-			atom::reference_type::waveform,
-			acbWaveformIndex
+			if (acbVolume != 100)
+			{
+				cmd.append_set_volume(acbVolume);
+			}
+		}
+
+		if (csbSynth.pitch != 0)
+		{
+			cmd.append_set_pitch(csbSynth.pitch);
+		}
+
+		if (csbSynth.envelopeInfo.attack != 0)
+		{
+			cmd.append_set_eg_attack(
+				csbSynth.envelopeInfo.attack
+			);
+		}
+
+		if (csbSynth.envelopeInfo.hold != 0)
+		{
+			cmd.append_set_eg_hold(
+				csbSynth.envelopeInfo.hold
+			);
+		}
+
+		if (csbSynth.envelopeInfo.decay != 0)
+		{
+			cmd.append_set_eg_decay(
+				csbSynth.envelopeInfo.decay
+			);
+		}
+
+		if (csbSynth.envelopeInfo.release != 0)
+		{
+			cmd.append_set_eg_release(
+				csbSynth.envelopeInfo.release
+			);
+		}
+
+		if (csbSynth.envelopeInfo.sustain != 1000)
+		{
+			cmd.append_set_eg_sustain(
+				csbSynth.envelopeInfo.sustain
+			);
+		}
+
+		/*
+		if (csbSynth.linkType == audio::synth_link_type::sound_element)
+		{
+			// TODO: Is this formula correct?
+			const auto acbPan3dVolume = (csbSynth.pan3dInfo.volume != 0) ?
+				static_cast<hl::u16>(csbSynth.pan3dInfo.volume * 10) :
+				static_cast<hl::u16>(
+					((static_cast<double>(csbSynth.dry[0]) / 255.0) * 10000.0)
+			);
+
+			if (acbPan3dVolume != 10000)
+			{
+				cmd.append_set_pan3d_volume(acbPan3dVolume);
+			}
+		}
+		*/
+
+		// TODO: SetPan3DAngle
+	}
+
+	static hl::u16 GenerateACBSequence(
+		atom::cue_sheet& outAcb,
+		const audio::cue_sheet& csb,
+		const SoundElementStreamingInfo* streamingInfo,
+		const SoundElementInfos& soundElementInfos,
+		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
+		const audio::synth& csbSynth
+	);
+
+	static hl::u16 GenerateACBTrack(
+		atom::cue_sheet& outAcb,
+		const audio::cue_sheet& csb,
+		const SoundElementStreamingInfo* streamingInfo,
+		const SoundElementInfos& soundElementInfos,
+		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
+		const audio::synth& csbSynth,
+		bool csbSynthIsRecursive,
+		hl::u32 category,
+		hl::u16 loopIndex)
+	{
+		const auto acbTrackIndex = outAcb.tracks.size();
+		auto& acbTrack = outAcb.tracks.emplace_back(
+			outAcb.tracks.allocator()
 		);
 
-		return acbSynthIndex;
-	}
-
-	unsigned short CSBUpgrader::generateTrackCmdTable(
-		const audio::synth& csbSynth,
-		ACFCategory category)
-	{
-		const auto acbTrackCmdTableIndex = static_cast<unsigned short>(acb.trackCmdTables.size());
-		auto& acbTrackCmdTable = acb.trackCmdTables.emplace_back();
-
-		const auto acbSynthVolume = static_cast<unsigned short>(
-			std::round(static_cast<float>(csbSynth.volume) / 10.0f)
-		);
-
-		if (acbSynthVolume != 100)
-		{
-			acbTrackCmdTable.append_set_volume(acbSynthVolume);
-		}
-
-		acbTrackCmdTable.append_set_bus_send(0, 10000);
-		//acbTrackCmdTable.append_set_bus_send(1, 10000);
-		acbTrackCmdTable.append_set_bus_send(1, (category == ACF_CATEGORY_BGM) ? 0 : 10000);
-		acbTrackCmdTable.append_set_bus_send(2, 0);
-		acbTrackCmdTable.append_set_bus_send(3, 0);
-		acbTrackCmdTable.append_set_bus_send(4, 0);
-		acbTrackCmdTable.append_set_bus_send(5, 0);
-		acbTrackCmdTable.append_set_bus_send(6, 0);
-		acbTrackCmdTable.append_set_bus_send(7, 0);
-
-		return acbTrackCmdTableIndex;
-	}
-
-	unsigned short CSBUpgrader::generateTrackEvent(
-		const audio::synth& csbSynth,
-		const CSBToACBMap& aisacMap,
-		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-		ACFCategory category)
-	{
-		const auto acbTrackEventIndex = static_cast<unsigned short>(acb.trackEventCmdTables.size());
-		auto acbTrackEvent = &acb.trackEventCmdTables.emplace_back();
-
-		if (csbSynth.linkType == audio::SYNTH_LINK_TYPE_SOUND_ELEMENT)
-		{
-			// Recurse through synth links.
-			if (csbSynth.nodeLinkNames.size() != 1)
-			{
-				throw std::runtime_error("Synth had unexpected link count");
-			}
-
-			//const auto& csbSoundElementNode = csb.at(csbSynth.nodeLinkIndices[0]);
-			const auto csbSoundElementIt = csb->soundElements.find(csbSynth.nodeLinkNames[0]);
-
-			if (csbSoundElementIt == csb->soundElements.end())
-			{
-				throw std::runtime_error("Could not find referenced sound element");
-			}
-
-			// Get waveform index.
-			const auto& csbSoundElement = csbSoundElementIt->second;
-			const auto csbSoundElementIndex = static_cast<std::size_t>(
-				csbSoundElementIt - csb->soundElements.begin()
-			);
-
-			const auto& waveformInfo = waveformsInfo[csbSoundElementIndex];
-			auto acbWaveformIndex = soundElementToWaveformMap[csbSoundElementIndex];
-
-			// Generate synths and appropriate play commands.
-			if (waveformInfo.segmentCount > 0)
-			{
-				float loopStartPosSec = 0;
-				unsigned char i = 0;
-
-				while (true)
-				{
-					const auto acbSynthIndex = generateSynth(acbWaveformIndex++);
-
-					acbTrackEvent->append_play(
-						atom::reference_type::synth,
-						acbSynthIndex
-					);
-
-					if (++i == waveformInfo.segmentCount)
-					{
-						break;
-					}
-
-					const auto segStartPosSec = waveformInfo.ComputeStartSeconds(
-						i,
-						csbSoundElement.sampleRate
-					);
-
-					const auto segStartPosMilli = static_cast<unsigned long>(
-						segStartPosSec * 1000.0
-					);
-						
-					acbTrackEvent->append_wait(segStartPosMilli);
-
-					if (waveformInfo.doesLoop && waveformInfo.loopSegmentIndex == i)
-					{
-						acbTrackEvent->append_seq_loop_start(0);
-						loopStartPosSec = segStartPosSec;
-					}
-				}
-
-				if (waveformInfo.doesLoop && waveformInfo.segmentCount > 1)
-				{
-					const auto loopEndPosSec = waveformInfo.ComputeEndSeconds(
-						csbSoundElement.sampleRate
-					);
-
-					const auto loopDurationMilli = static_cast<unsigned long>(
-						(loopEndPosSec - loopStartPosSec) * 1000.0
-					);
-
-					acbTrackEvent->append_wait(loopDurationMilli);
-					acbTrackEvent->append_seq_loop_end(0, loopDurationMilli);
-				}
-			}
-		}
-		else if (csbSynth.linkType == audio::SYNTH_LINK_TYPE_SYNTH)
-		{
-			const auto acbSequenceIndex = generateSequence(
-				csbSynth,
-				aisacMap,
-				aisacControlMap,
-				category
-			);
-
-			// Update pointers, since the vectors might have changed.
-			acbTrackEvent = &acb.trackEventCmdTables[acbTrackEventIndex];
-
-			acbTrackEvent->append_play(
-				atom::reference_type::sequence,
-				acbSequenceIndex
-			);
-		}
-		else
-		{
-			throw std::runtime_error("Cannot convert csb synth to acb track");
-		}
-
-		acbTrackEvent->append_no_op();
-		return acbTrackEventIndex;
-	}
-
-	unsigned short CSBUpgrader::generateTrack(
-		const audio::synth& csbSynth,
-		const CSBToACBMap& aisacMap,
-		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-		ACFCategory category)
-	{
-		// Generate track.
-		const auto acbTrackIndex = static_cast<unsigned short>(acb.tracks.size());
-		auto acbTrack = &acb.tracks.emplace_back();
-
-		// Assign AISAC indices.
-		assignAisacIndices(csbSynth, aisacMap, aisacControlMap, acbTrack->localAisacIndices);
-
-		// Generate track command table.
-		acbTrack->commandIndex = generateTrackCmdTable(csbSynth, category);
-
-		// Generate track event command table.
-		const auto trackEventIndex = generateTrackEvent(
-			csbSynth,
-			aisacMap,
+		// Generate ACB AISAC Indices
+		GenerateACBAisacIndices(
+			outAcb,
+			csb,
 			aisacControlMap,
-			category
+			csbSynth,
+			acbTrack.localAisacIndices
 		);
 
-		// Update pointers, since the vectors might have changed.
-		acbTrack = &acb.tracks[acbTrackIndex];
+		// Generate ACB track commands.
+		acbTrack.commandIndex = static_cast<hl::u16>(outAcb.trackCommands.size());
 
-		acbTrack->eventIndex = trackEventIndex;
-		return acbTrackIndex;
+		auto& cmd = outAcb.trackCommands.emplace_back(
+			outAcb.trackCommands.allocator()
+		);
+
+		GenerateACBCommands(cmd, csbSynth);
+
+		cmd.append_set_bus_send(0, 10000);
+		cmd.append_set_bus_send(1, 0); // TODO: Figure out why tf some sounds have this set to 10000 (full reverb) and others have it set to 0 (no reverb)
+		//cmd.append_set_bus_send(1, (category == ACF_CATEGORY_BGM) ? 0 : 10000);
+		cmd.append_set_bus_send(2, 0);
+		cmd.append_set_bus_send(3, 0);
+		cmd.append_set_bus_send(4, 0);
+		cmd.append_set_bus_send(5, 0);
+		cmd.append_set_bus_send(6, 0);
+		cmd.append_set_bus_send(7, 0);
+
+		// Generate ACB track event.
+		const auto evIndex = outAcb.trackEventCommands.size();
+		acbTrack.eventIndex = static_cast<hl::u16>(evIndex);
+
+		auto evCmd = &outAcb.trackEventCommands.emplace_back(
+			outAcb.trackEventCommands.allocator()
+		);
+
+		if (csbSynth.delayTime != 0)
+		{
+			evCmd->append_wait(csbSynth.delayTime);
+		}
+
+		switch (csbSynth.linkType)
+		{
+		case audio::synth_link_type::sound_element:
+		{
+			for (const auto& linkName : csbSynth.linkNames)
+			{
+				const auto& csbSoundElement = GetCSBLinkSoundElement(csb, linkName);
+				const auto csbLinkIndex = static_cast<std::size_t>(
+					&csbSoundElement - csb.soundElements.begin()
+				);
+
+				//const auto sampleRate = csbSoundElement.sampleRate;
+				const auto& soundElementInfo = soundElementInfos.data[csbLinkIndex];
+				const auto firstAcbSynthIndex = outAcb.synths.size();
+
+				for (unsigned char segmentIndex = 0;
+					segmentIndex < soundElementInfo.segmentCount;
+					++segmentIndex)
+				{
+					auto& acbSynth = outAcb.synths.emplace_back(
+						atom::synth_type::polyphonic,
+						outAcb.synths.allocator()
+					);
+
+					// TODO: Set voiceLimitGroupName !
+					acbSynth.commandIndex = 0;
+
+					acbSynth.refItems.emplace_back(
+						atom::ref_type::waveform,
+						static_cast<hl::u16>(
+							soundElementInfo.firstSegmentGlobalIndex +
+							segmentIndex
+						)
+					);
+				}
+
+				InsertTrackEventPlaySynthCommands(
+					*evCmd,
+					evCmd->end(),
+					soundElementInfo,
+					firstAcbSynthIndex,
+					loopIndex
+				);
+			}
+
+			break;
+		}
+
+		case audio::synth_link_type::synth:
+		{
+			const auto acbSeqRefIndex = GenerateACBSequence(
+				outAcb,
+				csb,
+				streamingInfo,
+				soundElementInfos,
+				aisacControlMap,
+				csbSynth
+			);
+
+			// NOTE: This is necessary since the vector may be reallocated above.
+			evCmd = outAcb.trackEventCommands.data() + evIndex;
+
+			evCmd->append_play(
+				atom::ref_type::sequence,
+				acbSeqRefIndex
+			);
+
+			break;
+		}
+
+		default:
+			throw std::runtime_error("Unsupported CSB synth link type");
+		}
+
+		evCmd->append_no_op();
+		return static_cast<hl::u16>(acbTrackIndex);
 	}
 
-	unsigned short CSBUpgrader::generateBgmSequenceCmdTable()
-	{
-		const auto acbSeqCmdTableIndex = static_cast<unsigned short>(acb.sequenceCmdTables.size());
-		auto& acbSeqCmdTable = acb.sequenceCmdTables.emplace_back();
-
-		// TODO: SetCategoryPriorityLevel(255)
-		acbSeqCmdTable.append_set_category(ACF_CATEGORY_BGM);
-		acbSeqCmdTable.append_set_bus_send(0, 10000);
-		acbSeqCmdTable.append_set_bus_send(1, 10000);
-		acbSeqCmdTable.append_set_bus_send(2, 10000);
-		acbSeqCmdTable.append_set_bus_send(3, 10000);
-		acbSeqCmdTable.append_set_bus_send(4, 10000);
-		acbSeqCmdTable.append_set_bus_send(5, 10000);
-		acbSeqCmdTable.append_set_bus_send(6, 10000);
-		acbSeqCmdTable.append_set_bus_send(7, 10000);
-
-		return acbSeqCmdTableIndex;
-	}
-
-	unsigned short CSBUpgrader::generateVoiceSequenceCmdTable()
-	{
-		const auto acbSeqCmdTableIndex = static_cast<unsigned short>(acb.sequenceCmdTables.size());
-		auto& acbSeqCmdTable = acb.sequenceCmdTables.emplace_back();
-
-		acbSeqCmdTable.append_set_category(ACF_CATEGORY_VOICE);
-		acbSeqCmdTable.append_set_bus_send(0, 10000);
-		acbSeqCmdTable.append_set_bus_send(1, 10000);
-		acbSeqCmdTable.append_set_bus_send(2, 10000);
-		acbSeqCmdTable.append_set_bus_send(3, 10000);
-		acbSeqCmdTable.append_set_bus_send(4, 10000);
-		acbSeqCmdTable.append_set_bus_send(5, 10000);
-		acbSeqCmdTable.append_set_bus_send(6, 10000);
-		acbSeqCmdTable.append_set_bus_send(7, 10000);
-
-		return acbSeqCmdTableIndex;
-	}
-
-	unsigned short CSBUpgrader::generateSequence(
-		const audio::synth& csbSynth,
-		const CSBToACBMap& aisacMap,
+	hl::u16 GenerateACBSequence(
+		atom::cue_sheet& outAcb,
+		const audio::cue_sheet& csb,
+		const SoundElementStreamingInfo* streamingInfo,
+		const SoundElementInfos& soundElementInfos,
 		rad::stack_or_heap_array<hl::u8, 8>& aisacControlMap,
-		ACFCategory category)
+		const audio::synth& csbSynth)
 	{
-		const auto acbSequenceIndex = static_cast<unsigned short>(acb.sequences.size());
-		auto acbSequence = &acb.sequences.emplace_back();
-
-		// Assign AISAC indices.
-		assignAisacIndices(csbSynth, aisacMap, aisacControlMap, acbSequence->localAisacIndices);
-
-		// Assign type.
-		acbSequence->trackIndices.reserve(csbSynth.nodeLinkNames.size());
+		// Generate ACB sequence.
+		atom::sequence_type acbSequenceType;
+		bool needsTrackValues = false;
 
 		switch (csbSynth.complexType)
 		{
-		case audio::SYNTH_COMPLEX_TYPE_POLYPHONIC:
-			acbSequence->type = atom::sequence_type::polyphonic;
+		case audio::synth_complex_type::polyphonic:
+			acbSequenceType = atom::sequence_type::polyphonic;
 			break;
 
-		case audio::SYNTH_COMPLEX_TYPE_RANDOM_NO_REPEAT:
-			acbSequence->type = atom::sequence_type::random_no_repeat;
-			acbSequence->trackValues.reserve(csbSynth.nodeLinkNames.size());
+		case audio::synth_complex_type::random_no_repeat:
+			acbSequenceType = atom::sequence_type::random_no_repeat;
+			needsTrackValues = true;
 			break;
 
-		case audio::SYNTH_COMPLEX_TYPE_SEQUENTIAL:
-			acbSequence->type = atom::sequence_type::sequential;
+		case audio::synth_complex_type::sequential:
+			acbSequenceType = atom::sequence_type::sequential;
 			break;
 
-		case audio::SYNTH_COMPLEX_TYPE_RANDOM:
-			// TODO: It seems gens 2024 also uses RANDOM_NO_REPEAT for all of these??
-			acbSequence->type = atom::sequence_type::random;
-			acbSequence->trackValues.reserve(csbSynth.nodeLinkNames.size());
+		case audio::synth_complex_type::random:
+			acbSequenceType = atom::sequence_type::random;
+			needsTrackValues = true;
 			break;
 
-		case audio::SYNTH_COMPLEX_TYPE_SEQUENTIAL_NO_LOOP:
+		case audio::synth_complex_type::sequential_no_loop:
+			// TODO: Handle this complex type ?
+			throw std::runtime_error("Unsupported CSB synth complex type");
+
 		default:
-			throw std::runtime_error("Cannot convert synth type to acb");
+			throw std::runtime_error("Unsupported CSB synth complex type");
 		}
 
-		// Set sequence command table.
-		if (category == ACF_CATEGORY_BGM)
+		const bool csbSynthIsRecursive = (csbSynth.linkType == audio::synth_link_type::synth);
+
+		const auto acbSequenceIndex = outAcb.sequences.size();
+		auto& acbSequence = outAcb.sequences.emplace_back(
+			acbSequenceType,
+			outAcb.sequences.allocator()
+		);
+
+		acbSequence.commandIndex = static_cast<hl::u16>(
+			outAcb.sequenceCommands.size()
+		);
+
+		auto& cmd = outAcb.sequenceCommands.emplace_back(
+			outAcb.sequenceCommands.allocator()
+		);
+
+		// TODO: Write SetCategoryPriority command if necessary ?
+
+		// TODO: Is there a better way to determine category ??
+		hl::u32 category;
+		if (csbSynth.name.starts_with("Synth/3000000_voice/"))
 		{
-			acbSequence->commandIndex = 0;
+			category = ACF_CATEGORY_VOICE;
+		}
+		else if (streamingInfo)
+		{
+			category = ACF_CATEGORY_BGM;
 		}
 		else
 		{
-			// TODO: Handle SE also!
-			acbSequence->commandIndex = 1;
+			category = ACF_CATEGORY_SE;
 		}
 
-		// Generate tracks.
-		if (csbSynth.linkType == audio::SYNTH_LINK_TYPE_SYNTH)
+		// TODO: Use ACF_CATEGORY_SYSTEM
+		// TODO: Use ACF_CATEGORY_SE_EVENT
+
+		cmd.append_set_category(category);
+
+		GenerateACBCommands(cmd, csbSynth);
+
+		for (hl::u16 i = 0; i < 8; ++i)
 		{
-			for (const auto& nodeLinkName : csbSynth.nodeLinkNames)
-			{
-				//const auto& csbLinkSynthNode = csb.at(nodeLinkIndex);
-				//const auto& csbLinkSynth = csb.synths().at(csbLinkSynthNode.data_index());
-				const auto& csbLinkSynth = csb->synths.at(nodeLinkName);
-
-				// Generate track.
-				const auto acbTrackIndex = generateTrack(
-					csbLinkSynth,
-					aisacMap,
-					aisacControlMap,
-					category
-				);
-
-				// Update pointers, since the vectors might have changed.
-				acbSequence = &acb.sequences[acbSequenceIndex];
-
-				// Generate track values.
-				if (csbLinkSynth.linkType == audio::SYNTH_LINK_TYPE_SOUND_ELEMENT &&
-					(acbSequence->type == atom::sequence_type::random ||
-					acbSequence->type == atom::sequence_type::random_no_repeat))
-				{
-					// TODO: Use probability from CSB !!!
-					acbSequence->trackValues.push_back(100);
-					//acbSequence->trackValues.push_back(csbSynth.probability);
-				}
-
-				acbSequence->trackIndices.push_back(acbTrackIndex);
-			}
+			cmd.append_set_bus_send(i, 10000);
 		}
-		else if (csbSynth.linkType == audio::SYNTH_LINK_TYPE_SOUND_ELEMENT)
+
+		// Generate ACB AISAC Indices
+		GenerateACBAisacIndices(
+			outAcb,
+			csb,
+			aisacControlMap,
+			csbSynth,
+			acbSequence.localAisacIndices
+		);
+
+		if (needsTrackValues)
 		{
-			// Generate track.
-			const auto acbTrackIndex = generateTrack(
-				csbSynth,
-				aisacMap,
-				aisacControlMap,
-				category
+			acbSequence.trackValues.reserve(csbSynth.linkNames.size());
+		}
+
+		// Generate ACB tracks.
+		hl::u16 loopIndex = 0;
+		acbSequence.trackIndices.reserve(csbSynth.linkNames.size());
+
+		for (const auto& linkName : csbSynth.linkNames)
+		{
+			const auto& csbLinkSynth = ((csbSynthIsRecursive)
+				? GetCSBLinkSynth(csb, linkName)
+				: csbSynth
 			);
 
-			// Update pointers, since the vectors might have changed.
-			acbSequence = &acb.sequences[acbSequenceIndex];
+			const auto acbTrackIndex = GenerateACBTrack(
+				outAcb,
+				csb,
+				streamingInfo,
+				soundElementInfos,
+				aisacControlMap,
+				csbLinkSynth,
+				csbSynthIsRecursive,
+				category,
+				loopIndex++
+			);
 
-			if (acbSequence->type == atom::sequence_type::random ||
-				acbSequence->type == atom::sequence_type::random_no_repeat)
+			auto& acbSequenceRef = outAcb.sequences[acbSequenceIndex];
+
+			acbSequenceRef.trackIndices.push_back_unchecked(
+				acbTrackIndex
+			);
+
+			if (needsTrackValues)
 			{
-				// This should never happen, but if it does, set sequence type to
-				// polyphonic since there isn't more than one sound anyway.
-
-				acbSequence->type = atom::sequence_type::polyphonic;
-			}
-
-			acbSequence->trackIndices.push_back(acbTrackIndex);
-		}
-		else
-		{
-			throw std::runtime_error("Cannot convert csb synth to acb sequence");
-		}
-
-		// Divide track values by track count.
-		for (auto& trackValue : acbSequence->trackValues)
-		{
-			if (trackValue != 0)
-			{
-				trackValue /= static_cast<unsigned short>(
-					acbSequence->trackValues.size()
+				acbSequenceRef.trackValues.push_back_unchecked(
+					static_cast<unsigned int>(csbLinkSynth.probability) /
+					static_cast<unsigned int>(csbSynth.linkNames.size())
 				);
 			}
 		}
 
-		return acbSequenceIndex;
+		return static_cast<hl::u16>(acbSequenceIndex);
 	}
 
-	static atom::graph_type ConvertGraphType(audio::graph_type type)
+	static void UpgradeCSB(
+		atom::cue_sheet& outAcb,
+		const void* csbData,
+		unsigned long csbDataSize,
+		const SoundElementStreamingInfo* streamingInfo = nullptr,
+		rad::allocator& tmpAllocator = rad::default_allocator,
+		rad::allocator& csbAllocator = rad::default_allocator)
 	{
-		switch (type)
+		const auto csb = ReadCSB(csbData, csbDataSize, tmpAllocator, csbAllocator);
+
+		const auto soundElementInfos = GetSoundElementInfosForUpgrade(
+			csb,
+			streamingInfo,
+			csbAllocator
+		);
+
+		// Generate embedded AWB data.
+		if (soundElementInfos.totalEmbeddedDataCount)
 		{
-		case audio::graph_type::volume:
-			return atom::graph_type::volume;
-
-		case audio::graph_type::bandpass_cutoff_low:
-			return atom::graph_type::bandpass_cutoff_low;
-
-		case audio::graph_type::bandpass_cutoff_high:
-			return atom::graph_type::bandpass_cutoff_high;
-
-		case audio::graph_type::bus_send_0:
-			return atom::graph_type::bus_send_0;
-
-		case audio::graph_type::bus_send_1:
-			return atom::graph_type::bus_send_1;
-
-		default:
-			throw std::runtime_error("Unknown or unsupported CSB AISAC Graph Type");
+			rad::memory_stream awbStream; // TODO: Pass allocator
+			GenerateEmbeddedAWB(soundElementInfos, awbStream);
+			outAcb.embeddedAwbData = awbStream.release();
 		}
-	}
 
-	CSBUpgrader::CSBUpgrader(
-		const audio::cue_sheet& csb,
-		rad::span<const WaveformInfo> waveformsInfo,
-		std::string_view name)
-		: csb(&csb)
-		, waveformsInfo(waveformsInfo.data())
-		, soundElementToWaveformMap(rad::no_value_init, waveformsInfo.size())
-	{
-		assert(csb.soundElements.size() == waveformsInfo.size());
-
-		acb.name = rad::string(name);
-
-		// Generate default sequence command tables.
-		generateBgmSequenceCmdTable();
-		//generateVoiceSequenceCmdTable();
+		// Generate streaming AWB data.
+		if (soundElementInfos.totalStreamingDataCount)
+		{
+			rad::memory_stream awbStream; // TODO: Pass allocator
+			GenerateStreamingAWB(soundElementInfos, awbStream);
+			outAcb.streamAwbTocData.emplace_back(awbStream.release());
+			outAcb.streamAwbHashes.emplace_back(atom::wave_bank_hash{outAcb.name, {0x20, 0x82, 0x21, 0xa2, 0x22, 0xb5, 0x00, 0xb9, 0x8f, 0x0d, 0x43, 0x1c, 0xf9, 0x5a, 0xbd, 0x2f}}); // TODO: Actual hash!!!
+		}
 
 		// Generate string values.
-		acb.stringValues.reserve(8);
-		acb.stringValues.emplace_back("MasterOut");
-		acb.stringValues.emplace_back("BUS1");
-		acb.stringValues.emplace_back("BUS2");
-		acb.stringValues.emplace_back("BUS3");
-		acb.stringValues.emplace_back("BUS4");
-		acb.stringValues.emplace_back("BUS5");
-		acb.stringValues.emplace_back("BUS6");
-		acb.stringValues.emplace_back("BUS7");
+		static const std::string_view defaultBusNames[] =
+		{
+			"MasterOut",
+			"BUS1",
+			"BUS2",
+			"BUS3",
+			"BUS4",
+			"BUS5",
+			"BUS6",
+			"BUS7",
+		};
 
-		// Generate ACF reference items.
-		acb.acfRefItems.reserve(25);
+		outAcb.stringValues.reserve(std::size(defaultBusNames));
 
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::category,
-			"BGM",
-			"",
+		for (const auto& defaultBusName : defaultBusNames)
+		{
+			assert(outAcb.stringValues.size() < outAcb.stringValues.capacity() &&
+				"String value count exceeded capacity; this should never happen!"
+			);
+
+			outAcb.stringValues.emplace_back_unchecked(
+				outAcb.stringValues.allocator(),
+				defaultBusName
+			);
+		}
+
+		// Generate default ACF references.
+		outAcb.acfRefItems.emplace_back(
+			atom::config_ref_item_type::category,
+			rad::string{ outAcb.acfRefItems.allocator(), "BGM" },
+			rad::string{ outAcb.acfRefItems.allocator() },
 			ACF_CATEGORY_BGM
 		);
 
-		//// TODO: Determine if we need this or not somehow - maybe search for synths starting with "Synth/3000000_voice" ??
-		//acb.acfRefItems.emplace_back(
-			//atom::acf_reference_item_type::category,
-			//"VOICE",
-			//"",
-			//ACF_CATEGORY_VOICE
-		//);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"MasterOut"
+		outAcb.acfRefItems.emplace_back(
+			atom::config_ref_item_type::category,
+			rad::string{ outAcb.acfRefItems.allocator(), "SE" },
+			rad::string{ outAcb.acfRefItems.allocator() },
+			ACF_CATEGORY_SE
 		);
 
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS1"
+		outAcb.acfRefItems.emplace_back(
+			atom::config_ref_item_type::category,
+			rad::string{ outAcb.acfRefItems.allocator(), "VOICE" },
+			rad::string{ outAcb.acfRefItems.allocator() },
+			ACF_CATEGORY_VOICE
 		);
 
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS2"
-		);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS3"
-		);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS4"
-		);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS5"
-		);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS6"
-		);
-
-		acb.acfRefItems.emplace_back(
-			atom::config_reference_item_type::dsp_bus,
-			"BUS7"
-		);
-
-		for (std::size_t i = 0; i < std::size(GlobalAisacControls); ++i)
+		for (const auto& defaultBusName : defaultBusNames)
 		{
-			acb.acfRefItems.emplace_back(
-				atom::config_reference_item_type::aisac_control,
-				GlobalAisacControls[i]
+			outAcb.acfRefItems.emplace_back(
+				atom::config_ref_item_type::dsp_bus,
+				rad::string{ outAcb.acfRefItems.allocator(), defaultBusName },
+				rad::string{ outAcb.acfRefItems.allocator() }
 			);
 		}
 
-		//acb.acfRefItems.emplace_back(
-			//atom::config_reference_item_type::aisac,
-			//"uw_switch1"
-		//);
+		for (const auto& globalAisacControl : GlobalAisacControls)
+		{
+			outAcb.acfRefItems.emplace_back(
+				atom::config_ref_item_type::aisac_control,
+				rad::string{ outAcb.acfRefItems.allocator(), globalAisacControl }
+			);
+		}
 
-		//acb.acfRefItems.emplace_back(
-			//atom::config_reference_item_type::aisac_control,
-			//"uw_switch"
-		//);
+		// Upgrade sound elements.
+		hl::u16 curMemoryAwbId = 0, curStreamAwbId = 0;
 
-		//acb.globalAisacRefTable.reserve(1);
-		//acb.globalAisacRefTable.emplace_back("uw_switch1");
+		outAcb.waveforms.reserve(soundElementInfos.totalSegmentCount);
 
-		// Convert AISACs.
-		CSBToACBMap aisacMap;
+		for (const auto& soundElementInfo : soundElementInfos.data)
+		{
+			for (unsigned char segmentIndex = 0;
+				segmentIndex < soundElementInfo.segmentCount;
+				++segmentIndex)
+			{
+				const auto& segment = soundElementInfo.segments[segmentIndex];
 
-		aisacMap.reserve(csb.aisacs.size());
-		acb.aisacs.reserve(csb.aisacs.size());
+				// Generate ACB waveform.
+				assert(outAcb.waveforms.size() < outAcb.waveforms.capacity() &&
+					"Waveform count exceeded capacity; this should never happen!"
+				);
+
+				outAcb.waveforms.emplace_back_unchecked(
+					((soundElementInfo.HasStreamingData()) ?	// memoryAwbId
+						UINT16_MAX : curMemoryAwbId++),
+					
+					((soundElementInfo.HasStreamingData()) ?	// streamAwbId
+						curStreamAwbId++ : UINT16_MAX),
+
+					atom::waveform_encode_type::adx,			// encodeType
+
+					((soundElementInfo.HasStreamingData()) ?	// streamType
+						atom::waveform_stream_type::stream :
+						atom::waveform_stream_type::memory
+					),
+
+					atom::waveform_loop_type::one_shot,			// loopType
+					soundElementInfo.channelCount,				// channelCount
+					soundElementInfo.sampleRate,				// sampleRate
+					segment.sampleCount,						// sampleCount
+
+					((soundElementInfo.HasStreamingData()) ?	// streamAwbPort
+						0 : UINT16_MAX)
+				);
+			}
+		}
+
+		// Generate default ACB AIASC control names.
+		outAcb.aisacControls.reserve(GlobalAisacControlCount);
+
+		for (hl::u16 i = 0; i < GlobalAisacControlCount; ++i)
+		{
+			assert(outAcb.aisacControls.size() < outAcb.aisacControls.capacity() &&
+				"AISAC control count exceeded capacity; this should never happen!"
+			);
+
+			outAcb.aisacControls.emplace_back_unchecked(
+				rad::string{ outAcb.aisacControls.allocator(), GlobalAisacControls[i] },
+				static_cast<hl::u16>(1000 + i)
+			);
+		}
+
+		// Upgrade AISACs.
+		outAcb.aisacs.reserve(csb.aisacs.size());
 
 		for (const auto& csbAisac : csb.aisacs)
 		{
-			// Convert AISAC Control.
-			const auto controlIndex = GetAisacControlIndex(csbAisac.second.controlName.c_str());
-			if (controlIndex == UINT16_MAX) continue;
+			const auto controlIndex = GetGlobalAisacControlIndex(csbAisac.controlName);
+			if (controlIndex == UINT16_MAX)
+			{
+				// TODO: Maybe handle this somehow instead of throwing?
+				throw std::runtime_error("CSB had unsupported AISAC control");
+			}
 
-			const auto controlID = controlIndex + 1000;
-			acb.aisacControls.emplace_back(csbAisac.second.controlName, controlID);
+			const auto controlID = static_cast<hl::u16>(1000 + controlIndex);
 
-			// Convert AISAC.
-			const auto p = aisacMap.try_emplace(csbAisac.first,
-				static_cast<hl::u16>(acb.aisacs.size()),
-				controlIndex
+			assert(outAcb.aisacs.size() < outAcb.aisacs.capacity() &&
+				"AISAC count exceeded capacity; this should never happen!"
 			);
 
-			assert(p.second);
-			auto& acbAisac = acb.aisacs.emplace_back();
+			auto& acbAisac = outAcb.aisacs.emplace_back_unchecked(
+				atom::aisac_type::simple,
+				controlID,
+				outAcb.aisacs.allocator()
+			);
 
-			acbAisac.controlID = controlID;
-			acbAisac.graphIndices.reserve(csbAisac.second.graphs.size());
+			// Generate ACB graph.
+			acbAisac.graphIndices.reserve(csbAisac.graphs.size());
 
-			// Convert AISAC graphs.
-			for (const auto& csbGraph : csbAisac.second.graphs)
+			for (const auto& csbGraph : csbAisac.graphs)
 			{
-				acbAisac.graphIndices.push_back_unchecked(
-					static_cast<hl::u16>(acb.graphs.size())
+				atom::graph_type acbGraphType;
+				switch (csbGraph.type)
+				{
+				case audio::graph_type::volume:
+					acbGraphType = atom::graph_type::volume;
+					break;
+
+				case audio::graph_type::pitch:
+					acbGraphType = atom::graph_type::pitch;
+					break;
+
+				case audio::graph_type::bandpass_cutoff_low:
+					acbGraphType = atom::graph_type::bandpass_cutoff_low;
+					break;
+
+				case audio::graph_type::bandpass_cutoff_high:
+					acbGraphType = atom::graph_type::bandpass_cutoff_high;
+					break;
+
+				case audio::graph_type::bus_send_0:
+					acbGraphType = atom::graph_type::bus_send_0;
+					break;
+
+				case audio::graph_type::bus_send_1:
+					acbGraphType = atom::graph_type::bus_send_1;
+					break;
+
+				case audio::graph_type::voice_priority:
+					acbGraphType = atom::graph_type::voice_priority;
+					break;
+
+				case audio::graph_type::unknown23:
+				case audio::graph_type::unknown26:
+					// TODO: What are these ?? Support these somehow?
+					continue;
+
+				default:
+					throw std::runtime_error("CSB had unsupported graph type");
+				}
+
+				assert(acbAisac.graphIndices.size() < acbAisac.graphIndices.capacity() &&
+					"Graph index count exceeded capacity; this should never happen!"
 				);
 
-				auto& acbGraph = acb.graphs.emplace_back();
-				acbGraph.type = ConvertGraphType(csbGraph.type);
+				acbAisac.graphIndices.push_back_unchecked(
+					static_cast<hl::u16>(outAcb.graphs.size())
+				);
 
-				acbGraph.points.reserve(csbGraph.points.size());
-				
+				auto& acbGraph = outAcb.graphs.emplace_back(
+					acbGraphType,
+					outAcb.graphs.allocator()
+				);
+
+				// Convert points.
+				acbGraph.curves.resize(csbGraph.points.size(), static_cast<hl::u16>(100));
+				acbGraph.controls.reserve(csbGraph.points.size());
+				acbGraph.destinations.reserve(csbGraph.points.size());
+
 				for (const auto& csbPoint : csbGraph.points)
 				{
-					acbGraph.points.emplace_back(
+					acbGraph.controls.push_back_unchecked(
 						static_cast<float>(
 							(static_cast<double>(csbPoint.in) / 10000.0) *
 							(csbGraph.inputMax - csbGraph.inputMin) +
 							csbGraph.inputMin
-						),
+						)
+					);
+
+					acbGraph.destinations.push_back_unchecked(
 						static_cast<hl::u16>(
 							((static_cast<double>(csbPoint.out) / 10000.0) *
 							(csbGraph.outputMax - csbGraph.outputMin) +
@@ -689,416 +747,115 @@ namespace gens2024
 			}
 		}
 
-		// Convert waveforms.
-		//const auto csbCues = csb.cues();
-		//const auto csbSynths = csb.synths();
-		//const auto csbSoundElements = csb.sound_elements();
+		// Generate default synth command table.
+		auto& defaultSynthCmd = outAcb.synthCommands.emplace_back();
 
-		//rad::vector<audio::aax_entry> aaxEntries;
-		unsigned short curMemAwbId = 0, curStreamAwbId = 0;
-		//acb.waveforms.reserve(csbSoundElements.size());
-
-		//aaxEntries.reserve(2);
-
-		//for (std::size_t i = 0; i < csb.soundElements.size(); ++i)
-		auto waveformInfo = this->waveformsInfo;
-		auto curSoundElementToWaveformIndex = soundElementToWaveformMap.data();
-
-		for (const auto& csbSoundElement : csb.soundElements)
+		for (hl::u16 i = 0; i < 8; ++i)
 		{
-			//const auto& csbSoundElement = csbSoundElements[i];
-			*curSoundElementToWaveformIndex = static_cast<unsigned short>(acb.waveforms.size());
-
-			switch (csbSoundElement.second.format)
-			{
-			case audio::SOUND_ELEMENT_FORMAT_AAX:
-				//const auto curAaxEntryCount = audio::get_aax_entries(
-					//csbSoundElement.second.embeddedData,
-					//&aaxEntries
-				//);
-
-				for (unsigned char i = 0; i < waveformInfo->segmentCount; ++i)
-				{
-					const auto& segmentInfo = waveformInfo->segments[i];
-					auto& acbWaveform = acb.waveforms.emplace_back();
-
-					const bool isStreamingData = csbSoundElement.second.embeddedData.empty();
-
-					acbWaveform.awbId = (isStreamingData) ? curStreamAwbId++ : curMemAwbId++;
-					acbWaveform.encodeType = atom::waveform_encode_type::adx;
-					acbWaveform.isStreaming = isStreamingData;
-					acbWaveform.channelCount = csbSoundElement.second.channelCount;
-
-					acbWaveform.loopFlags = atom::WAVEFORM_LOOP_FLAG_UNKNOWN1;
-					//acbWaveform.loopFlags = ((waveformInfo->doesLoop) ?
-						//atom::WAVEFORM_LOOP_FLAG_UNKNOWN2 :
-						//atom::WAVEFORM_LOOP_FLAG_UNKNOWN1
-					//);
-
-					acbWaveform.sampleRate = csbSoundElement.second.sampleRate;
-					acbWaveform.sampleCount = segmentInfo.sampleCount;
-				}
-
-				//aaxEntries.clear();
-
-				break;
-
-			default:
-				throw std::runtime_error("Unsupported sound element data format");
-			}
-
-			++waveformInfo;
-			++curSoundElementToWaveformIndex;
+			defaultSynthCmd.append_set_bus_send(i, 10000);
 		}
 
-		// Convert cues.
-		acb.cues.reserve(csb.cues.size());
+		// Upgrade cues.
+		outAcb.cues.reserve(csb.cues.size());
 
-		//for (std::size_t i = 0; i < csbCues.size(); ++i)
 		for (const auto& csbCue : csb.cues)
 		{
-			// Convert cue.
-			//const auto& csbCue = csbCues[i];
-			auto& acbCue = acb.cues.emplace_back();
+			// Generate ACB cue.
+			assert(outAcb.cues.size() < outAcb.cues.capacity() &&
+				"Cue count exceeded capacity; this should never happen!"
+			);
 
-			acbCue.id = csbCue.id;
-			acbCue.name = csbCue.name.value_or(rad::string{});
+			auto& acbCue = outAcb.cues.emplace_back_unchecked(
+				csbCue.id,
+				atom::ref_item{ 
+					atom::ref_type::sequence,
+					static_cast<hl::u16>(outAcb.sequences.size())
+				},
+				rad::optional_string{
+					outAcb.cues.allocator(),
+					csbCue.name
+				},
+				outAcb.cues.allocator()
+			);
 
-			if (csbCue.userData.has_value())
-			{
-				acbCue.userData = csbCue.userData.data();
-			}
+			acbCue.userData.assign(csbCue.userData.has_value() ?
+				csbCue.userData.value() : rad::string{}
+			);
 
 			acbCue.aisacControlMap.assign(2, 0);
 
-			const bool doesLoop = (csbCue.flags & audio::CUE_FLAGS_DOES_LOOP);
-
-			acbCue.playDuration = ((doesLoop) ?
-				UINT32_MAX :
-				csbCue.compute_play_duration(csb)
-			);
-
-			// Determine ACF Category type.
-			// TODO: Is there a better way to do this??
-			ACFCategory category;
-			if (csbCue.synthName.starts_with("Synth/3000000_voice/"))
+			if (csbCue.flags & audio::CUE_FLAGS_DOES_LOOP)
 			{
-				category = ACF_CATEGORY_VOICE;
+				acbCue.playDuration = UINT32_MAX;
 			}
 			else
 			{
-				// TODO: Handle SE categories!
-				category = ACF_CATEGORY_BGM;
+				// TODO: Calculate play duration
 			}
 
-			// Generate sequence.
-			//const auto& csbSynthNode = csbCue.get_synth_node(csb);
-			const auto& csbSynth = csbCue.get_synth(csb);
-			const auto acbSequenceIndex = generateSequence(
-				csbSynth,
-				aisacMap,
+			// Upgrade associated synth.
+			const auto csbSynthIt = csb.find_synth(csbCue.synthName);
+			if (csbSynthIt == csb.synths.end())
+			{
+				throw std::runtime_error(
+					"CSB cue links to a synth which was not found"
+				);
+			}
+
+			GenerateACBSequence(
+				outAcb,
+				csb,
+				streamingInfo,
+				soundElementInfos,
 				acbCue.aisacControlMap,
-				category
+				*csbSynthIt
 			);
-
-			acbCue.refItem =
-			{
-				atom::reference_type::sequence,
-				acbSequenceIndex
-			};
 		}
-	}
-
-	static unsigned short GenerateEmbeddedAwb(
-		rad::span<const WaveformInfo> waveformsInfo,
-		rad::stream& stream)
-	{
-		unsigned short curAwbID = 0;
-
-		atom::wave_bank_writer writer(stream);
-		writer.start();
-
-		// Write AWB IDs.
-		for (const auto& waveformInfo : waveformsInfo)
-		{
-			if (!waveformInfo.hasEmbeddedData) continue;
-
-			for (unsigned char i = 0; i < waveformInfo.segmentCount; ++i)
-			{
-				writer.write_id(curAwbID++);
-			}
-		}
-
-		// Write AWB data.
-		writer.write_data_positions();
-
-		for (const auto& waveformInfo : waveformsInfo)
-		{
-			if (!waveformInfo.hasEmbeddedData) continue;
-
-			for (unsigned char i = 0; i < waveformInfo.segmentCount; ++i)
-			{
-				const auto& segmentInfo = waveformInfo.segments[i];
-				writer.write_data({ segmentInfo.embeddedData, segmentInfo.dataSize });
-			}
-		}
-
-		writer.finish();
-		return curAwbID;
-	}
-
-	static void GenerateStreamingAwb(
-		const char* streamFilePath,
-		rad::span<const WaveformInfo> waveformsInfo,
-		rad::stream& stream)
-	{
-		unsigned short curAwbID = 0;
-
-		atom::wave_bank_writer writer(stream);
-		writer.start(1);
-
-		// Write AWB IDs.
-		for (const auto& waveformInfo : waveformsInfo)
-		{
-			if (waveformInfo.hasEmbeddedData) continue;
-
-			for (unsigned char i = 0; i < waveformInfo.segmentCount; ++i)
-			{
-				writer.write_id(curAwbID++);
-			}
-		}
-
-		// Write AWB data.
-		writer.write_data_positions();
-		curAwbID = 0;
-
-		stream.write_string8(streamFilePath);
-
-		for (const auto& waveformInfo : waveformsInfo)
-		{
-			if (waveformInfo.hasEmbeddedData) continue;
-
-			for (unsigned char i = 0; i < waveformInfo.segmentCount; ++i)
-			{
-				const auto& segmentInfo = waveformInfo.segments[i];
-				const uint32_t arr[] =
-				{
-					0,
-					static_cast<uint32_t>(segmentInfo.streamingDataPos),
-					segmentInfo.dataSize
-				};
-
-				writer.write_data({ (const unsigned char*)arr, sizeof(arr)});
-				//writer.fill_data_position(segmentInfo.streamingDataPos, segmentInfo.dataSize);
-			}
-		}
-
-		writer.finish();
-
-		//stream.jump_to(0);
-		//stream.write_as<uint32_t>(0x324C4D48); // HML2
-	}
-
-	static bool HasAnyStreamingSoundElements(const audio::cue_sheet& csb)
-	{
-		for (const auto& soundElement : csb.soundElements)
-		{
-			if (soundElement.second.embeddedData.empty())
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	static void GetWaveformInfoFromCSB(
-		const audio::cue_sheet& csb,
-		WaveformInfo* output,
-		const packed_file* cpk = nullptr,
-		rad::stream* cpkStream = nullptr)
-	{
-		for (const auto& soundElement : csb.soundElements)
-		{
-			switch (soundElement.second.format)
-			{
-			case audio::SOUND_ELEMENT_FORMAT_AAX:
-				if (!soundElement.second.embeddedData.empty())
-				{
-					GetWaveformInfoFromAAXMemory(soundElement.second.embeddedData, *output);
-				}
-				else
-				{
-					assert(cpk && cpkStream);
-
-					const auto& aaxCpkEntry = cpk->at(soundElement.first);
-					const auto aaxCpkDataPos = aaxCpkEntry.get_proxy_data_offset();
-
-					cpkStream->jump_to(aaxCpkDataPos);
-
-					GetWaveformInfoFromAAXStream(*cpkStream, *output);
-				}
-
-				++output;
-				break;
-
-			default:
-				throw std::runtime_error("Unsupported sound element data format");
-			}
-		}
-	}
-
-	static audio::cue_sheet ParseCSB(
-		const void* data,
-		unsigned long dataSize)
-	{
-		rad::readonly_memory_stream stream(data, dataSize);
-		return audio::cue_sheet(stream);
-	}
-
-	static void UpgradeCSB(
-		rad::stream& acbOutputStream,
-		const void* data,
-		unsigned long dataSize,
-		std::string_view name,
-		StreamingDataType streamDataType,
-		const char* streamDataPath)
-	{
-		// Parse CSB data.
-		const auto csb = ParseCSB(data, dataSize);
-
-		// Check if we have any streaming sound elements.
-		const bool usesStreaming = HasAnyStreamingSoundElements(csb);
-
-		if (usesStreaming && streamDataType == StreamingDataType::None)
-		{
-			throw std::runtime_error("CSB has streaming sound elements but no streaming data was provided");
-		}
-
-		// Get waveform info.
-		using WaveformInfoArr_t = rad::stack_or_heap_array<WaveformInfo, 32>;
-
-		WaveformInfoArr_t waveformsInfo(
-			csb.soundElements.size()
-		);
-
-		// Load CPK if necessary.
-		if (streamDataType == StreamingDataType::Cpk)
-		{
-			//// Build original path to CPK.
-			//static const std::string_view pathPrefix = ".\\image\\x64\\generations\\Sound\\";
-			//static const std::string_view pathSuffix = ".cpk";
-
-			//std::string originalPath;
-			//originalPath.reserve(pathPrefix.size() + name.size() + pathSuffix.size());
-
-			//originalPath.append(pathPrefix);
-			//originalPath.append(name);
-			//originalPath.append(pathSuffix);
-
-			//// Replace path to CPK with mod file path.
-			//std::string replacePath{};
-			//const auto err = g_loader->binder->ResolvePath(originalPath.c_str(), &replacePath);
-			
-			//if (err == eBindError_None)
-			//{
-				//LOG("%s -> %s", originalPath.c_str(), replacePath.c_str());
-			//}
-			//else
-			//{
-				//throw std::runtime_error("Failed to find CPK for CSB with streaming data");
-			//}
-
-			// Load CPK.
-			rad::file_stream cpkStream(
-				streamDataPath,
-				rad::file_stream::OPEN_MODE_READ_ONLY |
-				rad::file_stream::OPEN_FLAG_SHARED | // TODO: Should we get exclusive ownership of the cpk file?
-				rad::file_stream::OPEN_HINT_SEQUENTIAL_ACCESS // TODO: Should this be random access?
-			);
-
-			packed_file cpk;
-			cpk.read(cpkStream, packed_file::data_read_mode::skip);
-
-			GetWaveformInfoFromCSB(csb, waveformsInfo.data(), &cpk, &cpkStream);
-		}
-
-		// Load from folder
-		else if (streamDataType == StreamingDataType::Cpk_redirect_folder)
-		{
-			// TODO
-			throw std::runtime_error("Using streaming audio data from a cpk-redirect folder is not yet supported");
-		}
-
-		// Load embedded data.
-		else
-		{
-			GetWaveformInfoFromCSB(csb, waveformsInfo.data());
-		}
-
-		// Generate AWBs.
-		rad::memory_stream embeddedAWBStream;
-		const auto embeddedWaveformCount = GenerateEmbeddedAwb(
-			waveformsInfo,
-			embeddedAWBStream
-		);
-
-		rad::memory_stream streamingAWBStream;
-
-		if (usesStreaming)
-		{
-			GenerateStreamingAwb(streamDataPath, waveformsInfo, streamingAWBStream);
-		}
-
-		// Generate ACB.
-		const CSBUpgrader upgrader(
-			csb,
-			waveformsInfo,
-			name
-		);
-
-		// Write ACB data out to memory stream.
-		upgrader.result().write(
-			acbOutputStream,
-			(embeddedWaveformCount) ? embeddedAWBStream.data() : nullptr,
-			streamingAWBStream.data(),
-			//atom::packed_version(1, 12, 00)
-			atom::packed_version(1, 30, 00)
-		);
 	}
 
 	bool TryUpgradeCSB(
-		rad::memory_stream& acbOutputStream,
-		const void* data,
-		unsigned long dataSize,
-		std::string_view name,
-		StreamingDataType streamDataType,
-		const char* streamDataPath)
+		hl::cri::atom::cue_sheet& outAcb,
+		const void* csbData,
+		unsigned long csbDataSize,
+		const SoundElementStreamingInfo* streamingInfo,
+		rad::allocator& tmpAllocator,
+		rad::allocator& csbAllocator)
 	{
-		if (streamDataPath && streamDataType == StreamingDataType::None)
-		{
-			LOG("Mod csb + no cpk combination is not yet supported; falling back to no redirection");
-		}
-
 		try
 		{
 			UpgradeCSB(
-				acbOutputStream,
-				data,
-				dataSize,
-				name,
-				streamDataType,
-				streamDataPath
+				outAcb,
+				csbData,
+				csbDataSize,
+				streamingInfo,
+				tmpAllocator,
+				csbAllocator
 			);
 		}
 		catch (const std::exception& ex)
 		{
-			LOG("Failed to upgrade %s.csb - \"%s\"", name.data(), ex.what());
+			g_loader->WriteLog(
+				ML_LOG_LEVEL_ERROR,
+				ML_LOG_CATEGORY_GENERAL,
+				"Failed to upgrade 2011 CueSheet \"%s\": \"%s\"\n",
+				reinterpret_cast<size_t>(outAcb.name.data()),
+				reinterpret_cast<size_t>(ex.what()),
+				nullptr
+			);
+
 			return false;
 		}
 		catch (...)
 		{
-			LOG("Failed to upgrade %s.csb", name.data());
+			g_loader->WriteLog(
+				ML_LOG_LEVEL_ERROR,
+				ML_LOG_CATEGORY_GENERAL,
+				"Failed to upgrade 2011 CueSheet \"%s\": \"%s\"\n",
+				reinterpret_cast<size_t>(outAcb.name.data()),
+				reinterpret_cast<size_t>("[NO ERROR MESSAGE]"),
+				nullptr
+			);
+
 			return false;
 		}
 

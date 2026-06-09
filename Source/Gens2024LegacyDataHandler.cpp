@@ -1,7 +1,5 @@
-#include "Gens2024LegacyAudioGenerator.h"
-#include "Gens2024LegacyAudioUpgrader.h"
-#include "CRIWARE/Criware.h"
-#include "Globals.h"
+#include <string_view>
+#include <exception> // TODO: Remove me
 #include <boost/function.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/bind/placeholders.hpp>
@@ -9,7 +7,10 @@
 #include <rad/rad_memory_stream.h>
 #include <rad/rad_file.h> // TODO
 #include <rad/rad_path.h> // TODO
-#include <string_view>
+#include "Gens2024LegacyAudioUpgrader.h"
+#include "Gens2024LegacyAudioPatcher.h"
+#include "CRIWARE/Criware.h"
+#include "Globals.h"
 
 using namespace boost::placeholders;
 
@@ -191,7 +192,6 @@ namespace Hedgehog::Database
 			unsigned long long param_4)
 		{
 			boost::shared_ptr<CDatabaseData> out;
-
 			fpGetOrCreateData(this, out, param_2, param_3, param_4);
 			return out;
 		}
@@ -222,15 +222,7 @@ namespace Hedgehog::Sound
 			boost::shared_ptr<CSoundCueSheetMemoryData> out;
 			fpCreateCSoundCueSheetMemoryData(out, name, acbData, acbDataSize);
 			return out;
-			//return boost::shared_ptr<CSoundCueSheetMemoryData>(
-				//new CSoundCueSheetMemoryData()
-			//);
 		}
-
-		//CSoundCueSheetMemoryData()
-		//{
-			// TODO
-		//}
 	};
 
 	class CCueSheetBinaryData
@@ -292,7 +284,7 @@ namespace gens2024
 		const Hedgehog::Base::CSharedString&
 	)>;
 
-	static bool initializedCSBParser = false;
+	static constexpr hl::cri::atom::packed_version acbWriteVersion = { 1, 32, 00 };
 
 	FUNCTION_PTR(Hedgehog::Base::CSharedString, __cdecl, BuildSoundNameString, 0x148f45770, // TODO: SIGSCAN THIS!!!
 		const Hedgehog::Base::CSharedString& param_2,
@@ -318,7 +310,10 @@ namespace gens2024
 		unsigned long dataSize,
 		boost::shared_ptr<Hedgehog::Database::CDatabase>& db)
 	{
-		LOG("Upgrading %s.csb ...", name.data);
+		// NOTE: In practice, this function should only ever be called for csb
+		// files within mod ar files. The redirection has already happened.
+
+		LOG("Upgrading 2011 CueSheet \"%s.csb\"", name.data);
 
 		auto soundNameStr = BuildSoundNameString(
 			Hedgehog::Base::CSharedString("sound-cont"),
@@ -351,20 +346,15 @@ namespace gens2024
 
 		if (!dbData->IsMadeOne())
 		{
-			rad::memory_stream acbDataStream;
-			if (!TryUpgradeCSB(acbDataStream, data, dataSize, name.data))
+			try
 			{
-				// TODO: Do we need to do anything else to handle the failure case?
-				return;
-			}
+				hl::cri::atom::cue_sheet acb(name.data); // TODO: Also pass ACB GUID (get it from a built-in mapping between names and GUIDS?) and allocator
+				TryUpgradeCSB(acb, data, dataSize); // TODO: Pass in tmpAllocator and csbAllocator
 
-			// TODO: Use custom rad::allocator which calls this if this is in-fact necessary.
-			// TODO: Handle case where an exception is thrown below and this memory could leak.
-			void* newDataBuf = __HH_ALLOCALIGN(acbDataStream.data().size(), 0x10);
-			std::memcpy(newDataBuf, acbDataStream.data().data(), acbDataStream.data().size());
+				rad::memory_stream acbMemStream; // TODO: Pass allocator
+				acb.write(acbMemStream, { acbWriteVersion }); // TODO: Pass allocator
 
-			//const auto acbData = acbDataStream.data();
-			const auto acbData = rad::span<unsigned char>(static_cast<unsigned char*>(newDataBuf), acbDataStream.data().size());
+				const auto acbData = acbMemStream.data();
 			const auto cueSheetBinaryData = static_cast<Hedgehog::Sound::CCueSheetBinaryData*>(dbData.get());
 
 			cueSheetBinaryData->CreateCueSheet(
@@ -372,6 +362,29 @@ namespace gens2024
 				acbData.data(),
 				static_cast<unsigned long>(acbData.size())
 			);
+			}
+			catch (const std::exception& ex)
+			{
+				g_loader->WriteLog(
+					ML_LOG_LEVEL_ERROR,
+					ML_LOG_CATEGORY_GENERAL,
+					"Failed to upgrade 2011 CueSheet \"%s\": \"%s\"\n",
+					reinterpret_cast<size_t>(name.data),
+					reinterpret_cast<size_t>(ex.what()),
+					nullptr
+				);
+			}
+			catch (...)
+			{
+				g_loader->WriteLog(
+					ML_LOG_LEVEL_ERROR,
+					ML_LOG_CATEGORY_GENERAL,
+					"Failed to upgrade 2011 CueSheet \"%s\": \"%s\"\n",
+					reinterpret_cast<size_t>(name.data),
+					reinterpret_cast<size_t>("[NO ERROR MESSAGE]"),
+					nullptr
+				);
+			}
 
 			dbData->SetMadeOne();
 		}
@@ -381,40 +394,22 @@ namespace gens2024
 		Hedgehog::Database::CDatabase* thisPtr, Hedgehog::Base::CSharedString& name,
 		TypeMakeFunc makeFunc, TypeCreateFunc createFunc)
 	{
-		if (!initializedCSBParser && std::strcmp(name.data, "acb") == 0)
+		if (std::strcmp(name.data, "acb") == 0)
 		{
+			// Also register csb type.
 			Hedgehog::Base::CSharedString csbName("csb");
 
+			LOG("Register type: %s", csbName.data);
 			originalRegisterType(
 				thisPtr,
 				csbName,
 				boost::bind(MakeCSB, _1, _2, _3, _4),
 				boost::bind(CreateCSBParser, _1, _2)
 			);
-
-			initializedCSBParser = true;
 		}
 
-		//Hedgehog::Mirage::CRenderingInfrastructure* renderInfra = nullptr;
-		//Hedgehog::Mirage::CPhysicalAllocator* physAllocator = nullptr;
-
-		//auto z = boost::bind(CreateCSBParser, _1, _2, _3, _4, renderInfra, false, physAllocator);
-		//auto z = boost::bind(MakeCSB, _1, _2, _3, _4);
-		//TypeMakeFunc aa = z;
-		//sizeof(aa);
-
 		LOG("Register type: %s", name.data);
-		return originalRegisterType(thisPtr, name, makeFunc, createFunc);
-	}
-
-	HOOK(CriError, CRIAPI, criFsBinder_BindDirectory, nullptr,
-		CriFsBinderHn bndrhn, CriFsBinderHn srcbndrhn, const CriChar8* path,
-		void* work, CriSint32 worksize, CriFsBindId* bndrid)
-	{
-		// TODO: REMOVE THIS HOOK
-		LOG("BIND DIRECTORY: %s", path);
-		return originalcriFsBinder_BindDirectory(bndrhn,
-			srcbndrhn, path, work, worksize, bndrid);
+		originalRegisterType(thisPtr, name, makeFunc, createFunc);
 	}
 
 	struct CriAtomPlayerTag
@@ -429,8 +424,7 @@ namespace gens2024
 		uint32_t signature;
 		uint8_t version;
 		uint8_t dataPosSize;
-		uint8_t idSize;
-		uint8_t unknown1;
+		uint16_t idAlignment;
 		uint32_t waveformCount;
 		uint16_t dataAlignment;
 		uint16_t subkey;
@@ -445,7 +439,7 @@ namespace gens2024
 			return reinterpret_cast<const uint32_t*>(ids() + waveformCount);
 		}
 
-		inline const char* he1mlStrings() const noexcept
+		inline const char* extraHE1MLStrings() const noexcept
 		{
 			return reinterpret_cast<const char*>(dataPositions() + waveformCount + 1);
 		}
@@ -465,7 +459,7 @@ namespace gens2024
 			return waveformCount;
 		}
 
-		const uint32_t* getHe1mlInfo(uint16_t id) const
+		const HE1MLExtraWaveformData* getExtraHE1MLData(uint16_t id) const
 		{
 			const auto i = getWaveformIndex(id);
 			if (i == waveformCount)
@@ -475,7 +469,7 @@ namespace gens2024
 
 			const auto dataPos = dataPositions()[i];
 
-			return reinterpret_cast<const uint32_t*>(
+			return reinterpret_cast<const HE1MLExtraWaveformData*>(
 				reinterpret_cast<const unsigned char*>(this) + dataPos
 			);
 		}
@@ -494,48 +488,41 @@ namespace gens2024
 		AFS2Header* streamingAwbToc;
 	};
 
-	static std::unordered_set<std::string> streaming_paths; // TODO: !!!
-
-	HOOK(void, CRIAPI, criatomplayer_set_file_core, nullptr,
-		CriAtomPlayerHn player, CriFsBinderHn binder, const char* path,
-		size_t offset, size_t size)
-	{
-		LOG("AWB file: %s", path);
-		originalcriatomplayer_set_file_core(player, binder, path, offset, size);
-	}
-
 	HOOK(void, CRIAPI, criatomplayer_set_wave_id_core, nullptr,
 		CriAtomPlayerTag* player, CriAtomAwbTag* awb, CriSint32 id) //, CriUint32 offset)
 	{
-		// TODO: Possibly find a less hacky way to implement this
+		const auto path = (awb->path) ? awb->path : "[NO PATH]";
 
-		if (awb->path)
+		if (awb->streamingAwbToc)
 		{
-			if (streaming_paths.contains(awb->path))
+			if (awb->streamingAwbToc->subkey == 67)
 			{
-				//if (awb->memoryAwb && awb->memoryAwb->signature == 0x324C4D48)
-				//if (awb->path && 
-				//{
-				LOG("FAKE AWB: %s", awb->path);
-				//{
-				const auto he1mlInfo = awb->streamingAwbToc->getHe1mlInfo(id);
-				if (he1mlInfo)
+				const auto extraData = awb->streamingAwbToc->getExtraHE1MLData(id);
+
+				if (extraData)
 				{
-					const auto he1mlStrings = awb->streamingAwbToc->he1mlStrings();
-					const auto redirectPath = he1mlStrings + he1mlInfo[0];
+					const auto extraStrings = awb->streamingAwbToc->extraHE1MLStrings();
+					const auto redirectPath = extraStrings + extraData->streamingPathOff;
 
-					LOG("override: \"%s\" -> \"%s\"", awb->path, redirectPath);
+					LOG("USING FAKE AWB for id %d", (void*)(size_t)id);
+					LOG("override with: \"%s\"", redirectPath);
+					LOG("data offset: %d, size: %d", (void*)extraData->dataOffset, (void*)extraData->dataSize);
 
-					g_cri->criatomplayer_set_file_core(player, nullptr, redirectPath, he1mlInfo[1], he1mlInfo[2]);
+					g_cri->criatomplayer_set_file_core(
+						player,
+						nullptr,
+						redirectPath,
+						extraData->dataOffset,
+						extraData->dataSize
+					);
 
-					player->offset = he1mlInfo[1];
-					player->size = he1mlInfo[2];
+					player->offset = extraData->dataOffset;
+					player->size = extraData->dataSize;
+
 					return;
 				}
-			}
-			else
-			{
-				LOG("REAL AWB: %s", awb->path);
+
+				LOG("FAKE AWB FOUND FOR \"%s\", BUT MISSING HE1ML EXTRA DATA FOR ID %d !!!", path, (void*)(size_t)id);
 			}
 		}
 
@@ -549,147 +536,115 @@ namespace gens2024
 		CriFsBinderHn awb_binder, const CriChar8* awb_path,
 		void* work, CriSint32 work_size)
 	{
-		//LOG("LOAD ACB FILE: %s", acb_path);
-		//if (awb_path)
-		//{
-			//LOG("[USING AWB FILE: %s]", awb_path);
-		//}
+		// NOTE: In practice, this hook should only ever be called for "streaming" acb files.
+		// NOT for acb files contained within ar files.
 
+		assert(acb_path &&
+			"criAtomExAcb_LoadAcbFile should never be called with a NULL acb_path"
+		);
 
-		// Mod redirection:
+		std::string replaceCueSheetPath, replaceStreamingPath;
 
-		// Gens 2011: /mods/foobar/disk/bb3/Sonic.arl
-		// Gens 2011: /mods/foobar/Sound/SNG00_SYS.csb
-		// Gens 2024: /mods/foobar/generations/raw/Sonic.arl
-		// Gens 2024: /mods/foobar/generations/Sound/SNG00_SYS.acb
-
-		// If a generations folder exists, also bind it, with higher
-		// priority than the Gens 2011 subfolders.
-
-		// This allows you to have mods which support both Gens 2011
-		// and Gens 2024, and which have differences in Gens 2024.
-
-		// This could be used, for example, to have custom stage mods
-		// which support both games, but have additional chao objects
-		// placed within the level if played in Gens 2024.
-
-
-
-		// TODO: Replace all of this function with this logic:
-
-		// 1: If an awb or acb is present, just redirect those files. [COMPLETE]
-		// 2: Otherwise, if a csb file is present, create an acb from
-		//    it ("upgrade" the csb to an acb). [MOSTLY DONE]
-		// 3: If a cpk and/or aax streaming files are present, modify
-		//    the (upgraded, or clean) acb using hardcoded aax path -> acb mappings. [TODO]
-
-
-
-		std::string replaceAwbPath;
-		StreamingDataType streamDataType = StreamingDataType::None;
-		//bool useCpk = false, useCsb = false;
-		EBindError r;
-
-		std::string_view originalAwbPath;
-
-		if (awb_path)
+		// 1: If a mod awb or acb is present, just redirect those files.
+		// Ignore any csb or cpk mod files, in this case.
 		{
-			// If there are any mods to the awb file, use the original awb path.
-			originalAwbPath = awb_path;
+			bool doSimple2024Redirect = false;
 
-			r = g_loader->binder->ResolvePath(
-				originalAwbPath.data(),
-				&replaceAwbPath
-			);
-
-			// Otherwise, if there are not any mods to the awb file, check if
-			// there are any Gens 2011 mods which modify the corresponding cpk.
-			if (r == eBindError_NotFound)
+			if (g_loader->binder->ResolvePath(acb_path,
+				&replaceCueSheetPath) == eBindError_None)
 			{
-				assert(originalAwbPath.ends_with(".awb"));
+				acb_path = replaceCueSheetPath.c_str();
+				doSimple2024Redirect = true;
+			}
+			else if (awb_path && g_loader->binder->ResolvePath(
+				awb_path, &replaceStreamingPath) == eBindError_None)
+			{
+				awb_path = replaceStreamingPath.c_str();
+				doSimple2024Redirect = true;
+			}
 
-				// HACK: Temporarily modify the const awb_path data.
-				const auto awbExtPtr = const_cast<char*>(awb_path) + (originalAwbPath.size() - 4);
+			if (doSimple2024Redirect)
+			{
+				LOG("Simple Redirect to: \"%s\" and \"%s\"", acb_path, awb_path);
+
+				return originalcriAtomExAcb_LoadAcbFile(
+					acb_binder,
+					acb_path,
+					awb_binder,
+					awb_path,
+					work,
+					work_size
+				);
+			}
+		}
+
+		// 2: If a csb file is present, create an acb from it
+		// ("upgrade" the csb to an acb) in-memory, and pass
+		// it to the game.
+		const char* errorFmtMessage = "Failed to collect info for CueSheet \"%s\": \"%s\"\n";
+		const char* errorPath = acb_path;
+
+		try
+		{
+			std::unique_ptr<CPKStreamer> cpkStreamer;
+			SoundElementStreamingInfo streamingInfo = {
+				.cleanAwbPath = awb_path
+			};
+
+			// Collect streaming info (a CPK and/or streaming directory)
+			{
+				assert(std::string_view{awb_path}.ends_with(".awb"));
+
+				// HACK: Temporarily modify the const awb_path data, then modify it back.
+				const auto awbExtPtr = (const_cast<char*>(awb_path) + std::strlen(awb_path)) - 4;
 
 				std::memcpy(awbExtPtr, ".cpk", 4);
 
-				r = g_loader->binder->ResolvePath(
-					originalAwbPath.data(),
-					&replaceAwbPath
-				);
+				if (g_loader->binder->ResolvePath(awb_path,
+					&replaceStreamingPath) == eBindError_None) // .cpk
+				{
+					LOG("CPK redirect to \"%s\"", replaceStreamingPath.c_str());
+					cpkStreamer.reset(new CPKStreamer(replaceStreamingPath.c_str()));
+					streamingInfo.redirectCPK = cpkStreamer.get();
+				}
+
+				*awbExtPtr = '\0';
+
+				if (g_loader->binder->ResolvePath(awb_path,
+					&replaceStreamingPath) == eBindError_None) // directory
+			{
+					LOG("Directory redirect to: \"%s\"", replaceStreamingPath.c_str());
+					streamingInfo.redirectDir = replaceStreamingPath;
+			}
 
 				std::memcpy(awbExtPtr, ".awb", 4);
-
-				if (r == eBindError_None)
-				{
-					// Use the path to the Gens 2011 mod cpk as the awb path.
-					awb_path = replaceAwbPath.c_str();
-					streamDataType = StreamingDataType::Cpk;
-				}
-				else if (r == eBindError_NotFound)
-				{
-					std::memcpy(awbExtPtr, "/", 2);
-
-					r = g_loader->binder->ResolvePath(
-						originalAwbPath.data(),
-						&replaceAwbPath
-					);
-
-					std::memcpy(awbExtPtr, ".awb", 4);
-
-					awb_path = replaceAwbPath.c_str();
-					streamDataType = StreamingDataType::Cpk_redirect_folder;
-				}
 			}
-		}
 
-		// If there are any mods to the acb file, use the original acb path.
-		const std::string_view originalAcbPath(acb_path);
-		std::string replaceAcbPath;
-
-		r = g_loader->binder->ResolvePath(
-			originalAcbPath.data(),
-			&replaceAcbPath
-		);
-
-		if (r == eBindError_None)
+			// If a csb is found, upgrade it to acb and use it.
 		{
-			if (streamDataType == StreamingDataType::Cpk)
-			{
-				LOG("Mod cpk + mod acb combination is not yet supported; falling back to mod acb redirect ONLY");
-				awb_path = originalAwbPath.data();
-			}
-		}
+				assert(std::string_view{acb_path}.ends_with(".acb"));
 
-		// Otherwise, if there are not any mods to the acb file, check if
-		// there are any Gens 2011 mods which modify the corresponding csb.
-		else if (r == eBindError_NotFound)
-		{
-			assert(originalAcbPath.ends_with(".acb"));
-
-			// HACK: Temporarily modify the const acb_path data.
-			const auto acbExtPtr = const_cast<char*>(acb_path) + (originalAcbPath.size() - 4);
+				// HACK: Temporarily modify the const acb_path data, then modify it back.
+				const auto acbExtPtr = (const_cast<char*>(acb_path) + std::strlen(acb_path)) - 4;
 
 			std::memcpy(acbExtPtr, ".csb", 4);
 
-			r = g_loader->binder->ResolvePath(
-				originalAcbPath.data(),
-				&replaceAcbPath
+				const auto r = g_loader->binder->ResolvePath(
+					acb_path,
+					&replaceCueSheetPath
 			);
 
 			std::memcpy(acbExtPtr, ".acb", 4);
 
 			if (r == eBindError_None)
 			{
-				LOG("%s -> %s", originalAcbPath.data(), replaceAcbPath.c_str());
-
-				const auto name = rad::path::get_stem(replaceAcbPath);
-				LOG("Upgrading CriAu CueSheet... %s", name.data());
+					errorFmtMessage = "Failed to upgrade 2011 CueSheet \"%s\": \"%s\"\n";
+					errorPath = replaceCueSheetPath.c_str();
+					LOG("Upgrading 2011 CueSheet \"%s\"", replaceCueSheetPath.c_str());
 
 				rad::file_stream stream(
-					replaceAcbPath.c_str(),
+						replaceCueSheetPath.c_str(),
 					rad::file_stream::OPEN_MODE_READ_ONLY |
-					rad::file_stream::OPEN_FLAG_SHARED | // TODO: Should we get exclusive ownership of the csb file?
 					rad::file_stream::OPEN_HINT_SEQUENTIAL_ACCESS // TODO: Should this be random access?
 				);
 
@@ -698,41 +653,94 @@ namespace gens2024
 
 				stream.read(csbData.get(), csbDataSize);
 
-				rad::memory_stream acbDataStream;
-				if (TryUpgradeCSB(acbDataStream, csbData.get(), csbDataSize, name, streamDataType, awb_path))
-				{
-					//// TODO: Use custom rad::allocator which calls this if this is in-fact necessary.
-					//void* newDataBuf = __HH_ALLOCALIGN(acbDataStream.data().size(), 0x10);
-					//std::memcpy(newDataBuf, acbDataStream.data().data(), acbDataStream.data().size());
+					const auto name = rad::path::get_stem(acb_path);
+					hl::cri::atom::cue_sheet acb(name); // TODO: Also pass ACB GUID (get it from a built-in mapping between names and GUIDS?) and allocator
+					TryUpgradeCSB(acb, csbData.get(), csbDataSize, &streamingInfo); // TODO: Pass in tmpAllocator and csbAllocator
 
-					streaming_paths.emplace(awb_path); // TODO: !!!
+					rad::memory_stream acbMemStream; // TODO: Pass allocator
+					acb.write(acbMemStream, { acbWriteVersion }); // TODO: Pass allocator
 
-					const auto acbData = acb_data_array.emplace_back(std::move(acbDataStream)).data();
+					const auto acbData = acb_data_array.emplace_back(std::move(acbMemStream)).data();
+					// TODO: Free the acbData later when the game attempts to release it !!!
 
-					//acb_path = replacePath.c_str();
-
-					//UncheckedReplaceEndWith(originalAwbPath, "cpk"); // TODO: REMOVE THIS LINE
-
-					const auto r2 = g_cri->criAtomExAcb_LoadAcbData(
+					const auto hnd = g_cri->criAtomExAcb_LoadAcbData(
 						acbData.data(),
 						static_cast<CriSint32>(acbData.size()),
 						awb_binder,
-						awb_path, //awb_path,
-						nullptr, //work,
-						0 //work_size
+						awb_path,
+						nullptr,
+						0
 					);
 
-					//const auto zz = *(void**)((char*)r2 + 0x10);
-					//const auto z = (void*)((char*)zz + 0x1708);
+					if (!hnd)
+					{
+						LOG("Failed to load upgraded ACB data for \"%s\"", awb_path);
+					}
 
-					return r2;
+					return hnd;
 				}
 			}
-			else if (r == eBindError_NotFound && streamDataType == StreamingDataType::Cpk)
+
+			// Otherwise, if there is any streaming data (a CPK or a streaming directory),
+			// patch the clean ACB to utilize it instead.
+			if (streamingInfo.redirectDir || streamingInfo.redirectCPK)
 			{
-				LOG("Mod cpk + no acb/csb combination is not yet supported; falling back to no redirection");
-				awb_path = originalAwbPath.data();
+				errorFmtMessage = "Failed to patch 2024 CueSheet \"%s\": \"%s\"\n";
+				LOG("Patching 2024 CueSheet to use 2011 streaming data \"%s\"", acb_path);
+
+				rad::file_stream stream(
+					acb_path,
+					rad::file_stream::OPEN_MODE_READ_ONLY | rad::file_stream::OPEN_FLAG_SHARED //|
+				);
+
+				hl::cri::atom::cue_sheet acb(stream);
+
+				PatchACB(acb, streamingInfo);
+
+				rad::memory_stream acbMemStream; // TODO: Pass allocator
+				acb.write(acbMemStream, { acbWriteVersion }); // TODO: Pass allocator
+
+				const auto acbData = acb_data_array.emplace_back(std::move(acbMemStream)).data();
+				// TODO: Free the acbData later when the game attempts to release it !!!
+
+				const auto hnd = g_cri->criAtomExAcb_LoadAcbData(
+					acbData.data(),
+					static_cast<CriSint32>(acbData.size()),
+					awb_binder,
+					awb_path,
+					nullptr,
+					0
+				);
+
+				if (!hnd)
+			{
+					LOG("Failed to load patched ACB data for \"%s\"", awb_path);
+				}
+
+				return hnd;
 			}
+		}
+		catch (const std::exception& ex)
+		{
+			g_loader->WriteLog(
+				ML_LOG_LEVEL_ERROR,
+				ML_LOG_CATEGORY_GENERAL,
+				errorFmtMessage,
+				reinterpret_cast<size_t>(errorPath),
+				reinterpret_cast<size_t>(ex.what()),
+				nullptr
+			);
+		}
+		catch (...)
+		{
+			g_loader->WriteLog(
+				ML_LOG_LEVEL_ERROR,
+				ML_LOG_CATEGORY_GENERAL,
+				errorFmtMessage,
+				reinterpret_cast<size_t>(errorPath),
+				reinterpret_cast<size_t>("[NO ERROR MESSAGE]"),
+				nullptr
+			);
 		}
 
 		return originalcriAtomExAcb_LoadAcbFile(acb_binder, acb_path, awb_binder, awb_path, work, work_size);
@@ -740,22 +748,10 @@ namespace gens2024
 
 	void InstallLegacyDataHandlers()
 	{
-		InitializeLegacyACBTemplates();
+		InitLegacyAudioPatcher();
 
-		//INSTALL_HOOK_ADDRESS(BindFile, values.cri_table.criFsBinder_BindFile);
 		INSTALL_HOOK_ADDRESS(criAtomExAcb_LoadAcbFile, g_cri->criAtomExAcb_LoadAcbFile);
-		//INSTALL_HOOK_ADDRESS(criAtomExAcb_LoadAcbData, values.cri_table.criAtomExAcb_LoadAcbData);
-
-		//INSTALL_HOOK_ADDRESS(CreateCueSheetMemoryData, values.CreateCueSheetMemoryData);
 		INSTALL_HOOK_ADDRESS(RegisterType, 0x140325750); // TODO
-		//INSTALL_HOOK_ADDRESS(criFsiowin_Open, g_cri->criFsiowin_Open);
-
-		INSTALL_HOOK_ADDRESS(criFsBinder_BindDirectory, g_cri->criFsBinder_BindDirectory);
-		//g_cri->criFsBinder_BindCpk()
-
 		INSTALL_HOOK_ADDRESS(criatomplayer_set_wave_id_core, g_cri->criatomplayer_set_wave_id_core);
-		INSTALL_HOOK_ADDRESS(criatomplayer_set_file_core, g_cri->criatomplayer_set_file_core);
-
-		//INSTALL_HOOK_ADDRESS(criatomsoudvoice_set_source, 0x1407bf730); // TODO
 	}
 }

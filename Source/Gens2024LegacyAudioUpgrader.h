@@ -1,22 +1,15 @@
 #pragma once
-#include <rad/rad_memory_stream.h>
-#include <string_view>
+#include <hedgelib/cri/hl_cri_atom_cue_sheet.h>
+#include "Gens2024LegacyAudioParser.h"
 
 namespace gens2024
 {
-	enum class StreamingDataType
-	{
-		None = 0,
-		Cpk,
-		Cpk_redirect_folder,
-	};
-
 	bool TryUpgradeCSB(
-		rad::memory_stream& acbOutputStream,
-		const void* data,
-		unsigned long dataSize,
-		std::string_view name,
-		StreamingDataType streamDataType = StreamingDataType::None,
-		const char* streamDataPath = nullptr
+		hl::cri::atom::cue_sheet& outAcb,
+		const void* csbData,
+		unsigned long csbDataSize,
+		const SoundElementStreamingInfo* streamingInfo = nullptr,
+		rad::allocator& tmpAllocator = rad::default_allocator,
+		rad::allocator& csbAllocator = rad::default_allocator
 	);
 }

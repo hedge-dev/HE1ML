@@ -197,9 +197,9 @@
     <ClInclude Include="Game\Sonic2013\GameVariables.h" />
     <ClInclude Include="Game\Sonic2013\HostFileSystemSave.h" />
     <ClInclude Include="Game\Sonic2013\LWPackfile.h" />
-    <ClInclude Include="Gens2024LegacyAudioStreamTemplates.h" />
-    <ClInclude Include="Gens2024LegacyAudioGenerator.h" />
+    <ClInclude Include="Gens2024LegacyAudioPatcher.h" />
     <ClInclude Include="Gens2024LegacyAudioParser.h" />
+    <ClInclude Include="Gens2024LegacyAudioACBPatchInfo.inl" />
     <ClInclude Include="Gens2024LegacyAudioUpgrader.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="resource.h" />
@@ -234,7 +234,7 @@
     <ClCompile Include="Game\Sonic2013\LWPackfile.cpp" />
     <ClCompile Include="Game\Sonic2013\LWSaveHandler.cpp" />
     <ClCompile Include="Game\Sonic2013\LWWorkHandler.cpp" />
-    <ClCompile Include="Gens2024LegacyAudioGenerator.cpp" />
+    <ClCompile Include="Gens2024LegacyAudioPatcher.cpp" />
     <ClCompile Include="Gens2024LegacyAudioParser.cpp" />
     <ClCompile Include="Gens2024LegacyAudioUpgrader.cpp" />
     <ClCompile Include="Gens2024LegacyDataHandler.cpp" />

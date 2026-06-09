@@ -31,8 +31,8 @@
     <ClInclude Include="BINA.h" />
     <ClInclude Include="Game\Gens2024\GameVariables.h" />
     <ClInclude Include="Gens2024LegacyAudioUpgrader.h" />
-    <ClInclude Include="Gens2024LegacyAudioGenerator.h" />
-    <ClInclude Include="Gens2024LegacyAudioStreamTemplates.h" />
+    <ClInclude Include="Gens2024LegacyAudioACBPatchInfo.inl" />
+    <ClInclude Include="Gens2024LegacyAudioPatcher.h" />
     <ClInclude Include="Gens2024LegacyAudioParser.h" />
   </ItemGroup>
   <ItemGroup>
@@ -69,7 +69,7 @@
     <ClCompile Include="Game\Gens2024\Gens2024GameVariables.cpp" />
     <ClCompile Include="Gens2024LegacyAudioUpgrader.cpp" />
     <ClCompile Include="Gens2024LegacyDataHandler.cpp" />
-    <ClCompile Include="Gens2024LegacyAudioGenerator.cpp" />
+    <ClCompile Include="Gens2024LegacyAudioPatcher.cpp" />
     <ClCompile Include="Gens2024LegacyAudioParser.cpp" />
   </ItemGroup>
   <ItemGroup>
