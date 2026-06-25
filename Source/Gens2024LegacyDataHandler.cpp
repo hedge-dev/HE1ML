@@ -7,10 +7,12 @@
 #include <rad/rad_memory_stream.h>
 #include <rad/rad_file.h> // TODO
 #include <rad/rad_path.h> // TODO
+#include <hedgelib/hh_new/hl_hh_packed_file_info.h> 
 #include "Gens2024LegacyAudioUpgrader.h"
 #include "Gens2024LegacyAudioPatcher.h"
 #include "CRIWARE/Criware.h"
 #include "Globals.h"
+#include <fdi.h>
 
 using namespace boost::placeholders;
 
@@ -93,6 +95,12 @@ namespace Hedgehog::Base
 			GetHolder()->Release();
 		}
 	};
+}
+
+namespace Hedgehog::Database
+{
+	class CArchiveDatabaseLoader;
+	class CDatabase;
 }
 
 // TODO: What is the actual name of this?
@@ -272,6 +280,13 @@ namespace Hedgehog::Mirage
 
 namespace gens2024
 {
+	using TypeMakeFuncPtr = void(*)(
+		const Hedgehog::Base::CSharedString&,
+		void*,
+		unsigned long,
+		boost::shared_ptr<Hedgehog::Database::CDatabase>&
+	);
+
 	using TypeMakeFunc = boost::function<void(
 		const Hedgehog::Base::CSharedString&,
 		void*,
@@ -390,13 +405,67 @@ namespace gens2024
 		}
 	}
 
+	HOOK(void, __cdecl, MakePFI, nullptr,
+		const Hedgehog::Base::CSharedString& name,
+		void* data,
+		unsigned long dataSize,
+		boost::shared_ptr<Hedgehog::Database::CDatabase>& db)
+	{
+		if (data)
+		{
+			try
+			{
+				rad::readonly_memory_stream inStream(data, dataSize);
+				hl::hh_new::mirage::packed_file_info pfi;
+				const auto fileInfo = pfi.read(inStream);
+
+				if (fileInfo.offsetType == hl::hh_new::mirage::off_type::u32)
+				{
+					LOG("Upgrading 32-bit HH data \"%s.pfi\"", name.data);
+
+					rad::memory_stream outStream;
+					pfi.write(outStream, { .offsetType = hl::hh_new::mirage::off_type::u64 });
+
+					originalMakePFI(
+						name,
+						outStream.data().data(),
+						static_cast<unsigned long>(outStream.data().size()),
+						db
+					);
+
+					return;
+				}
+			}
+			catch (const std::exception& ex)
+			{
+				g_loader->WriteLog(
+					ML_LOG_LEVEL_ERROR,
+					ML_LOG_CATEGORY_GENERAL,
+					"Failed to upgrade PFI \"%s\": \"%s\"\n",
+					reinterpret_cast<size_t>(name.data),
+					reinterpret_cast<size_t>(ex.what()),
+					nullptr
+				);
+			}
+		}
+
+		originalMakePFI(name, data, dataSize, db);
+	}
+
 	HOOK(void, __cdecl, RegisterType, nullptr,
 		Hedgehog::Database::CDatabase* thisPtr, Hedgehog::Base::CSharedString& name,
 		TypeMakeFunc makeFunc, TypeCreateFunc createFunc)
 	{
-		if (std::strcmp(name.data, "acb") == 0)
+		const std::string_view typeName(name.data);
+
+		if (typeName == "pfi")
 		{
-			// Also register csb type.
+			const auto makeFuncAddr = reinterpret_cast<const uintptr_t*>(&makeFunc)[1];
+			INSTALL_HOOK_ADDRESS(MakePFI, makeFuncAddr);
+		}
+		else if (typeName == "acb")
+		{
+			// Register csb type IN ADDITION to acb type.
 			Hedgehog::Base::CSharedString csbName("csb");
 
 			LOG("Register type: %s", csbName.data);
@@ -746,12 +815,181 @@ namespace gens2024
 		return originalcriAtomExAcb_LoadAcbFile(acb_binder, acb_path, awb_binder, awb_path, work, work_size);
 	}
 
+	// TODO: Move all of this archive/compression stuff to another file?
+	FNALLOC(fdiAlloc)
+	{
+		return ::operator new(cb);
+	}
+
+	FNFREE(fdiFree)
+	{
+		return ::operator delete(pv);
+	}
+
+	FNOPEN(fdiOpen)
+	{
+		// HACK: Taken from LibGens. Since the FDI interface doesn't allow us to pass
+		// arbitrary user data to the fdiOpen callback, our source stream is converted
+		// to a hex string and passed as the CAB path.
+		rad::stream* compressedAR;
+		std::sscanf(pszFile, "%p", &compressedAR);
+		
+		return (INT_PTR)compressedAR;
+	}
+
+	FNREAD(fdiRead)
+	{
+		const auto stream = (rad::stream*)hf;
+		return static_cast<UINT>(stream->try_read(pv, cb));
+	}
+
+	FNWRITE(fdiWrite)
+	{
+		const auto stream = (rad::stream*)hf;
+		return static_cast<UINT>(stream->try_write(pv, cb));
+	}
+
+	FNCLOSE(fdiClose)
+	{
+		return 0;
+	}
+
+	FNSEEK(fdiSeek)
+	{
+		const auto stream = (rad::stream*)hf;
+		stream->seek(static_cast<rad::stream::seek_mode>(seektype), dist);
+		return static_cast<long>(stream->tell());
+	}
+
+	FNFDINOTIFY(fdiNotify)
+	{
+		return (fdint == fdintCOPY_FILE) ? (INT_PTR)pfdin->pv : 0;
+	}
+
+	class archive_allocator
+		: public rad::allocator
+	{
+	public:
+		void* allocate(std::size_t size, std::size_t alignment) override
+		{
+			return new uint8_t[size];
+		}
+
+		void* reallocate(
+			void* ptr,
+			std::size_t oldSize,
+			std::size_t newSize,
+			std::size_t alignment) override
+		{
+			const auto newPtr = new uint8_t[newSize];
+
+			if (ptr)
+			{
+				std::memcpy(newPtr, ptr, newSize > oldSize ? oldSize : newSize);
+				this->free(ptr);
+			}
+
+			return newPtr;
+		}
+
+		void free(void* ptr) noexcept override
+		{
+			delete[] static_cast<uint8_t*>(ptr);
+		}
+	};
+
+	HOOK(void, __fastcall, CArchiveDatabaseLoaderLoadArchive, nullptr,
+		Hedgehog::Database::CArchiveDatabaseLoader* This,
+		const boost::shared_ptr<Hedgehog::Database::CDatabase>& in_spDatabase,
+		boost::shared_ptr<uint8_t[]> in_spData,
+		uint32_t in_DataSize,
+		uint32_t in_DataSize1,
+		void* in_pFileReader)
+	{
+		constexpr uint32_t minValidCABHeaderSize = 36;
+		constexpr uint32_t CABSignature = 0x4643534DU; // MSCF
+
+		if (in_DataSize >= minValidCABHeaderSize)
+		{
+			uint32_t sig;
+			memcpy(&sig, in_spData.get(), sizeof(sig));
+
+			if (sig == CABSignature)
+			{
+				LOG("Decompressing CAB-compressed AR...");
+				ERF erf;
+
+				const auto fdi = FDICreate(
+					fdiAlloc,
+					fdiFree,
+					fdiOpen,
+					fdiRead,
+					fdiWrite,
+					fdiClose,
+					fdiSeek,
+					cpuUNKNOWN,
+					&erf
+				);
+
+				if (!fdi)
+				{
+					// TODO: Log error info from erf
+					MessageBoxA(NULL, "FDICREATE FAILURE", "FDICREATE FAILURE", MB_OK);
+				}
+
+				archive_allocator arAllocator;
+				rad::readonly_memory_stream compressedAR(in_spData.get(), in_DataSize);
+				rad::memory_stream uncompressedAR(arAllocator);
+
+				// OPTIMIZATION: We attempt one large allocation rather than many re-allocations.
+				// If the allocation is not large enough, the stream will simply reallocate.
+				uncompressedAR.reserve(in_DataSize * 2);
+
+				// HACK: Taken from LibGens. Since the FDI interface doesn't allow us to pass
+				// arbitrary user data to the fdiOpen callback, our source stream is converted
+				// to a hex string and passed as the CAB path.
+				char cabNameBuf[1] = {};
+				char cabPathBuf[24] = {};
+				std::sprintf(cabPathBuf, "%p", static_cast<rad::stream*>(&compressedAR));
+
+				if (!FDICopy(
+					fdi,
+					cabNameBuf,
+					cabPathBuf,
+					0,
+					fdiNotify,
+					nullptr,
+					static_cast<rad::stream*>(&uncompressedAR)))
+				{
+					// TODO: Log error info from erf
+					MessageBoxA(NULL, "FDICOPY FAILURE", "FDICOPY FAILURE", MB_OK);
+				}
+
+				FDIDestroy(fdi);
+
+				in_DataSize1 = in_DataSize = static_cast<uint32_t>(uncompressedAR.data().size());
+				in_spData.reset(uncompressedAR.release().release());
+			}
+		}
+
+		originalCArchiveDatabaseLoaderLoadArchive(
+			This,
+			in_spDatabase,
+			in_spData,
+			in_DataSize,
+			in_DataSize1,
+			in_pFileReader
+		);
+	}
+
 	void InstallLegacyDataHandlers()
 	{
 		InitLegacyAudioPatcher();
 
+		INSTALL_HOOK_ADDRESS(RegisterType, 0x140325750); // TODO: SIGSCAN
+		INSTALL_HOOK_ADDRESS(CArchiveDatabaseLoaderLoadArchive, 0x140327400); // TODO: SIGSCAN
+
 		INSTALL_HOOK_ADDRESS(criAtomExAcb_LoadAcbFile, g_cri->criAtomExAcb_LoadAcbFile);
-		INSTALL_HOOK_ADDRESS(RegisterType, 0x140325750); // TODO
 		INSTALL_HOOK_ADDRESS(criatomplayer_set_wave_id_core, g_cri->criatomplayer_set_wave_id_core);
 	}
 }
