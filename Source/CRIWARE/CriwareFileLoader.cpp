@@ -1,4 +1,4 @@
-#include "Pch.h"
+#include "../Pch.h"
 #include "CriwareFileLoader.h"
 #include "Criware.h"
 #include <queue>
