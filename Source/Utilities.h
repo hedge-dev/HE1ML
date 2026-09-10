@@ -283,8 +283,8 @@ constexpr std::string ptrtostr(size_t ptr)
 template<bool CaseInsensitive = false>
 constexpr size_t strhash(const std::string_view& str)
 {
-	int hash1 = (5381 << 16) + 5381;
-	int hash2 = hash1;
+	unsigned int hash1 = (5381 << 16) + 5381;
+	unsigned int hash2 = hash1;
 
 	const size_t length = str.size();
 	for (int i = 0; i < length; i += 2)
